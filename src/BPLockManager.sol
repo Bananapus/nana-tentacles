@@ -40,7 +40,8 @@ contract BPLockManager is IBPLockManager {
 
     /**
      * @dev 
-     * The outstanding tentacles for each token.
+     * The outstanding tentacles for each token. The index of the activated bits identify which tentacles are outstanding. 
+     * ex. `0x5` means that both tentacleId 0 and 2 are outstanding
      */
     mapping(uint256 _tokenID => bytes32) outstandingTentacles;
 
@@ -73,24 +74,27 @@ contract BPLockManager is IBPLockManager {
         stakingDelegate = _stakingDelegate;
     }
 
-
     //*********************************************************************//
     // ---------------------- external transactions ---------------------- //
     //*********************************************************************//
 
     /**
      * @notice hook that (optionally) gets called upon registration as a lockManager.
+     * @param _payer the person who send the transaction and paid for the staked position
+     * @param _beneficiary the person who received the staked position
      * @param _tokenID The tokenID that got registered.
-     * @param _data data regarding the lock as send by the user, can be any data.
+     * @param _data data regarding the lock as send by the user
      */
     function onRegistration(
+        address _payer,
+        address _beneficiary,
         uint256 _tokenID,
         bytes calldata _data
     ) external override {
         // Make sure only the delegate can call this
         if(msg.sender != address(stakingDelegate)) revert ONLY_DELEGATE();
         // Decode data
-        (address _beneficiary, uint8[] memory _tentacleIds) = abi.decode(_data, (address, uint8[]));
+        (uint8[] memory _tentacleIds) = abi.decode(_data, (uint8[]));
 
         // Get the value of the token
         uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenID);
@@ -109,13 +113,30 @@ contract BPLockManager is IBPLockManager {
 
     /**
      * @notice hook called upon redemption
-     * @param _id the id of the token being redeemed
+     * @param _tokenID the id of the token being redeemed
+     * @param _owner the current owner of the token
      */
-    function onRedeem(uint256 _id) external override {
+    function onRedeem(
+        uint256 _tokenID,
+        address _owner
+    ) external override {
+        _tokenID;
         // Make sure only the delegate can call this
         if(msg.sender != address(stakingDelegate)) revert ONLY_DELEGATE();
+        bytes32 _outstandingTentacles = outstandingTentacles[_tokenID];
 
-        // TODO: get the outstandingTentacles and attempt to destroy all of the outstanding tentacles
+        // Perform a quick check to see if any are set, if none are set we can do a quick return
+        if(uint256(_outstandingTentacles) == 0) return;
+        
+        for(uint256 _i; _i < 256;) {
+            // Check if the tentacle has been created, if it has attempt to destroy it
+            if (_getTentacle(_outstandingTentacles, uint8(_i)) == TENTACLE_STATE.CREATED)
+                _destroy(uint8(_i), _tokenID, _owner, _owner);
+
+            unchecked {
+                ++_i;
+            }
+        }
     }
 
     function create(uint8 _tentacleID, uint256 _tokenID, address _beneficiary) external {
@@ -145,7 +166,7 @@ contract BPLockManager is IBPLockManager {
         // NOTICE
         // TODO: Add owner check!
 
-        // Should we allow an tentacle to be replaced? 
+        // Should we allow a tentacle to be replaced? 
         tentacles[_tentacleID] = _tentacle;
 
         // TODO: emit event
