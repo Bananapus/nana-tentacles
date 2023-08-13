@@ -13,7 +13,7 @@ contract LockManagerBitshiftingTest is BPLockManager, Test {
         TENTACLE_STATE _state = _getTentacle(_outstandingTentacles, _id);
 
         // Toggle the value
-        if(_state == TENTACLE_STATE.CREATED )
+        if(_state == TENTACLE_STATE.NONE )
             _outstandingTentacles = _setTentacle(_outstandingTentacles, _id);
         else
             _outstandingTentacles = _unsetTentacle(_outstandingTentacles, _id);
