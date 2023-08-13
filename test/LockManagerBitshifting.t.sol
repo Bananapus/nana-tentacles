@@ -8,7 +8,7 @@ contract LockManagerBitshiftingTest is BPLockManager, Test {
     
     constructor() BPLockManager(IStakingDelegate(address(0))) {}
 
-    function testToggle(bytes32 _outstandingTentacles, uint8 _id) public {
+    function testToggle(bytes32 _outstandingTentacles, uint8 _id) public pure {
         // Get the state it was in initially
         TENTACLE_STATE _state = _getTentacle(_outstandingTentacles, _id);
 

@@ -12,7 +12,7 @@ interface IBPLockManager {
      * @param _id the id of the token being locked
      * @param _data data regarding the lock as send by the user, can be any data
      */
-    function onRegistration(uint256 _id, bytes[] calldata _data) external;
+    function onRegistration(uint256 _id, bytes calldata _data) external;
 
     /**
      * @notice hook called upon redemption, if a token had its 
