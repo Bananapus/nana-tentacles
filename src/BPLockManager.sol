@@ -49,7 +49,7 @@ contract BPLockManager is IBPLockManager {
      * @dev 
      * Limited to be a `uint8` since this is the limit of the `outstandingTentacles` bitmap.
      */
-    mapping(uint8 => IBPTentacle) tentacles;
+    mapping(uint8 => IBPTentacle) public tentacles;
 
 
     //*********************************************************************//
@@ -64,6 +64,10 @@ contract BPLockManager is IBPLockManager {
         if(_token != address(stakingDelegate)) return true;
         // Check if no bits are set, if none are then this token is unlocked
         return uint256(outstandingTentacles[_id]) == 0;
+    }
+
+    function tenacleCreated(uint256 _tokenID, uint8 _tentacleID) external view returns (bool) {
+        return _getTentacle(outstandingTentacles[_tokenID], _tentacleID) == TENTACLE_STATE.CREATED;
     }
 
     //*********************************************************************//
