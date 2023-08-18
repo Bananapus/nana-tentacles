@@ -62,7 +62,8 @@ contract LockManagerUnitTest is DSTestFull {
         _lockManager.create(
             _tentacleID,
             _tokenID,
-            _beneficiary
+            _beneficiary,
+             IBPTentacleHelper(address(0))
         );
 
         // Check that it is not registered
@@ -103,7 +104,8 @@ contract LockManagerUnitTest is DSTestFull {
         _lockManager.create(
             _tentacleID,
             _tokenID,
-            _beneficiary
+            _beneficiary,
+             IBPTentacleHelper(address(0))
         );
     }
 
@@ -128,7 +130,8 @@ contract LockManagerUnitTest is DSTestFull {
         _lockManager.create(
             _tentacleID,
             _tokenID,
-            _beneficiary
+            _beneficiary,
+            IBPTentacleHelper(address(0))
         );
     }
 
@@ -179,6 +182,7 @@ contract LockManagerUnitTest is DSTestFull {
     ) internal returns(IBPTentacle) {
         IBPTentacle _tentacle = IBPTentacle(_mockContract("tentacle"));
 
+        // TODO: fix, this sets a simple address but it should be a struct, but this is not supported by stdStorage
         _storage.target(address(__lockManager))
             .sig(__lockManager.tentacles.selector)
             .with_key(_tentacleId)

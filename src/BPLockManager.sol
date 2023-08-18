@@ -2,12 +2,26 @@
 pragma solidity ^0.8.13;
 
 import {IBPTentacle} from "./interfaces/IBPTentacle.sol";
+import {IBPTentacleHelper} from "./interfaces/IBPTentacleHelper.sol";
 import {IBPLockManager} from "./interfaces/IBPLockManager.sol";
 import {IStakingDelegate} from "./interfaces/IStakingDelegate.sol";
 
 enum TENTACLE_STATE {
     NONE,
     CREATED
+}
+
+struct TentacleConfiguration {
+    // Defines if a default helper is set (saves us an sload to check)
+    bool hasDefaultHelper;
+    // Should overrides be disabled
+    bool forceDefault;
+    // If a forced default is set and the user provides an override,
+    // should this cause a revert, or should we not revert and use the forced default
+    bool revertIfDefaultForcedAndOverriden;
+
+    // ... room for some flags
+    IBPTentacle tentacle;
 }
 
 contract BPLockManager is IBPLockManager {
@@ -21,6 +35,7 @@ contract BPLockManager is IBPLockManager {
     error NOT_ALLOWED(uint256 _tokenId);
     error ALREADY_CREATED(uint8 _tentacleID, uint256 _tokenId);
     error TENTACLE_NOT_SET(uint8 _tentacleID);
+    error TENTACLE_HAS_DEFAULT_HELPER(uint8 _tentacleID);
 
 
     //*********************************************************************//
@@ -49,8 +64,10 @@ contract BPLockManager is IBPLockManager {
      * @dev 
      * Limited to be a `uint8` since this is the limit of the `outstandingTentacles` bitmap.
      */
-    mapping(uint8 => IBPTentacle) public tentacles;
+    mapping(uint8 => TentacleConfiguration) public tentacles;
 
+
+    mapping(uint8 => IBPTentacleHelper) public defaultTentacleHelper;
 
     //*********************************************************************//
     // ------------------------- external views -------------------------- //
@@ -105,7 +122,8 @@ contract BPLockManager is IBPLockManager {
 
         uint256 _nTentacles = _tentacleIds.length;
         for(uint256 _i; _i < _nTentacles;) {
-            _create(_tentacleIds[_i], _tokenID, _beneficiary, _amount);
+            // TODO: Add encoded helper for each tentacleID
+            _create(_tentacleIds[_i], _tokenID, _beneficiary, _amount, IBPTentacleHelper(address(0)));
 
             unchecked {
                 ++_i;
@@ -143,7 +161,7 @@ contract BPLockManager is IBPLockManager {
         }
     }
 
-    function create(uint8 _tentacleID, uint256 _tokenID, address _beneficiary) external {
+    function create(uint8 _tentacleID, uint256 _tokenID, address _beneficiary, IBPTentacleHelper _helperOverride) external {
         // Make sure that this lockManager is in control of locking the token
         if(stakingDelegate.lockManager(_tokenID) != address(this)) revert NOT_SET_AS_LOCKMANAGER(_tokenID);
         // Check that the sender has permission to create tentacles for the token
@@ -152,7 +170,7 @@ contract BPLockManager is IBPLockManager {
         // Get the value of the token
         uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenID);
 
-        _create(_tentacleID, _tokenID, _beneficiary, _amount);
+        _create(_tentacleID, _tokenID, _beneficiary, _amount, _helperOverride);
         
         // TODO: emit event?
     }
@@ -166,12 +184,13 @@ contract BPLockManager is IBPLockManager {
         // TODO: emit event?
     }
 
-    function setTentacle(uint8 _tentacleID, IBPTentacle _tentacle) external {
+    function setTentacle(uint8 _tentacleID, TentacleConfiguration calldata _configuration, IBPTentacleHelper _defaultHelper) external {
         // NOTICE
         // TODO: Add owner check!
 
         // Should we allow a tentacle to be replaced? 
-        tentacles[_tentacleID] = _tentacle;
+        tentacles[_tentacleID] = _configuration;
+        defaultTentacleHelper[_tentacleID] = _defaultHelper;
 
         // TODO: emit event
     }
@@ -180,7 +199,7 @@ contract BPLockManager is IBPLockManager {
     // ---------------------- internal transactions ---------------------- //
     //*********************************************************************//
 
-    function _create(uint8 _tentacleID, uint256 _tokenID, address _beneficiary, uint256 _amount) internal {
+    function _create(uint8 _tentacleID, uint256 _tokenID, address _beneficiary, uint256 _amount, IBPTentacleHelper _helperOverride) internal {
         // NOTICE: this does not perform access control checks!
 
         // Check that the tentacle hasn't been created yet for this token
@@ -192,11 +211,43 @@ contract BPLockManager is IBPLockManager {
         outstandingTentacles[_tokenID] = _setTentacle(_outstandingTentacles, _tentacleID);
 
         // Get the tentacle that we are minting
-        IBPTentacle _tentacle = tentacles[_tentacleID];
-        if(address(_tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleID);
+        TentacleConfiguration memory _tentacle = tentacles[_tentacleID];
 
-        // Call tentacle to mint tokens
-        _tentacle.mint(_beneficiary, _amount);
+        if(address(_tentacle.tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleID);
+        
+        // Figure out the helper we should use
+        // TODO: add a reserved address that specifies the case for 'if there is a (unenforced) default I would still prefer the 0 address flow instead'
+        IBPTentacleHelper _helper = _helperOverride;
+        if( _tentacle.hasDefaultHelper && ( _tentacle.forceDefault || address(_helper) == address(0) ) ) {
+            IBPTentacleHelper _defaultHelper = defaultTentacleHelper[_tentacleID];
+
+            if (
+                _tentacle.revertIfDefaultForcedAndOverriden &&
+                _helperOverride != _defaultHelper && 
+                address(_helperOverride) != address(0)
+            ) revert TENTACLE_HAS_DEFAULT_HELPER(_tentacleID);
+
+            _helper = _defaultHelper;
+        }
+
+        // Perform the mint, either use the helper flow or the regular flow
+        if (address(_helper) != address(0)) {
+            // Mint to the helper
+            _tentacle.tentacle.mint(address(_helper), _amount);
+            // Call the helper to perform its actions
+            _helper.createFor(
+                _tentacleID,
+                _tentacle.tentacle,
+                _tokenID,
+                _amount,
+                _beneficiary
+            );
+            
+        } else {
+
+            // Call tentacle to mint tokens
+            _tentacle.tentacle.mint(_beneficiary, _amount);
+        }
     }
 
     function _destroy(uint8 _tentacleID, uint256 _tokenID, address _caller, address _from) internal {
@@ -210,11 +261,11 @@ contract BPLockManager is IBPLockManager {
             revert ALREADY_CREATED(_tentacleID, _tokenID);
 
         // Get the tentacle that we are burning for
-        IBPTentacle _tentacle = tentacles[_tentacleID];
-        if(address(_tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleID);
+        TentacleConfiguration memory _tentacleConfiguration = tentacles[_tentacleID];
+        if(address(_tentacleConfiguration.tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleID);
 
         // Call tentacle to burn tokens
-        _tentacle.burn(_caller, _from, _amount);
+        _tentacleConfiguration.tentacle.burn(_caller, _from, _amount);
 
         // Update to reflect that the tentacle has been destroyed
         outstandingTentacles[_tokenID] = _unsetTentacle(_outstandingTentacles, _tentacleID);
