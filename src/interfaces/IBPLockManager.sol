@@ -11,13 +11,14 @@ interface IBPLockManager {
      * @notice hook (optionally) called upon registration to simplify UX
      * @param _payer the person who send the transaction and paid for the staked position
      * @param _beneficiary the person who received the staked position
-     * @param _tokenID the id of the token being locked
+     * @param _tokenIDs the id of the token being locked
      * @param _data data regarding the lock as send by the user, can be any data.
      */
     function onRegistration(
         address _payer,
         address _beneficiary,
-        uint256 _tokenID,
+        uint256 _stakingAmount,
+        uint256[] memory _tokenIDs,
         bytes calldata _data
     ) external;
 

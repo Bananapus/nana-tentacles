@@ -12,19 +12,15 @@ contract LockManagerUnitTest is DSTestFull {
     error NOT_SET_AS_LOCKMANAGER(uint256 _tokenId);
     error TENTACLE_NOT_SET(uint8 _tentacleID);
 
-
-
-
-
     StdStorage _storage;
 
-    BPLockManager _lockManager;
+    ForTest_BPLockManager _lockManager;
 
     // Mocks
     IStakingDelegate _delegate = IStakingDelegate(_mockContract("delegate"));
 
     function setUp() public {
-        _lockManager = new BPLockManager(_delegate);
+        _lockManager = new ForTest_BPLockManager(_delegate);
     }
 
 
@@ -85,7 +81,7 @@ contract LockManagerUnitTest is DSTestFull {
         vm.assume(_lockManager != _configuredLockManager);
 
         // Mock the tentacle
-        IBPTentacle _tentacle = configure_and_mock_tentacle(
+        configure_and_mock_tentacle(
             _lockManager,
             _tentacleID
         );
@@ -177,16 +173,26 @@ contract LockManagerUnitTest is DSTestFull {
     }
 
     function configure_and_mock_tentacle(
-        BPLockManager __lockManager,
+        ForTest_BPLockManager __lockManager,
         uint8 _tentacleId
     ) internal returns(IBPTentacle) {
         IBPTentacle _tentacle = IBPTentacle(_mockContract("tentacle"));
 
-        // TODO: fix, this sets a simple address but it should be a struct, but this is not supported by stdStorage
-        _storage.target(address(__lockManager))
-            .sig(__lockManager.tentacles.selector)
-            .with_key(_tentacleId)
-            .checked_write(address(_tentacle));
+        __lockManager.setTentacleConfiguration(
+            _tentacleId,
+            TentacleConfiguration({
+                hasDefaultHelper: false,
+                forceDefault: false,
+                revertIfDefaultForcedAndOverriden: false,
+                tentacle: _tentacle
+            })
+        );
+
+        // // TODO: fix, this sets a simple address but it should be a struct, but this is not supported by stdStorage
+        // _storage.target(address(__lockManager))
+        //     .sig(__lockManager.tentacles.selector)
+        //     .with_key(_tentacleId)
+        //     .checked_write(address(_tentacle));
 
         return _tentacle;
     }
@@ -211,4 +217,15 @@ contract LockManagerUnitTest is DSTestFull {
     //         _state != _newState
     //     );
     // }
+}
+
+
+contract ForTest_BPLockManager is BPLockManager {
+
+    constructor(IStakingDelegate _stakingDelegate) BPLockManager(_stakingDelegate) {}
+
+
+    function setTentacleConfiguration(uint8 _tentacleID, TentacleConfiguration memory _configuration) public {
+        tentacles[_tentacleID] = _configuration;
+    }
 }

@@ -11,6 +11,11 @@ enum TENTACLE_STATE {
     CREATED
 }
 
+struct TentacleCreateData {
+    uint8 id;
+    IBPTentacleHelper helper;
+}
+
 struct TentacleConfiguration {
     // Defines if a default helper is set (saves us an sload to check)
     bool hasDefaultHelper;
@@ -103,30 +108,40 @@ contract BPLockManager is IBPLockManager {
      * @notice hook that (optionally) gets called upon registration as a lockManager.
      * @param _payer the person who send the transaction and paid for the staked position
      * @param _beneficiary the person who received the staked position
-     * @param _tokenID The tokenID that got registered.
+     * @param _tokenIDs The tokenID that got registered.
      * @param _data data regarding the lock as send by the user
      */
     function onRegistration(
         address _payer,
         address _beneficiary,
-        uint256 _tokenID,
+        uint256 _stakingAmount,
+        uint256[] memory _tokenIDs,
         bytes calldata _data
     ) external override {
+        _payer; _stakingAmount;
+
         // Make sure only the delegate can call this
         if(msg.sender != address(stakingDelegate)) revert ONLY_DELEGATE();
-        // Decode data
-        (uint8[] memory _tentacleIds) = abi.decode(_data, (uint8[]));
+        // NOTICE: The user provides this data we have to make sure we protect against specifying the same tentacle multiple times
+        (TentacleCreateData[] memory _tentacleData) = abi.decode(_data, (TentacleCreateData[]));
+        uint256 _tokenCount = _tokenIDs.length;
 
-        // Get the value of the token
-        uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenID);
+        // TODO: this is very ineffecient how we are doing it now,
+        // we should register each token and then bulk create for all at once (using `_stakingAmount`)
+        uint256 _nTentacles = _tentacleData.length;
+        for(uint256 _j; _j < _tokenCount;) {
+            uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenIDs[_j]);
 
-        uint256 _nTentacles = _tentacleIds.length;
-        for(uint256 _i; _i < _nTentacles;) {
-            // TODO: Add encoded helper for each tentacleID
-            _create(_tentacleIds[_i], _tokenID, _beneficiary, _amount, IBPTentacleHelper(address(0)));
+            for(uint256 _i; _i < _nTentacles;) {
+                _create(_tentacleData[_i].id, _tokenIDs[_j], _beneficiary, _amount, _tentacleData[_i].helper);
+                
+                unchecked {
+                    ++_i;
+                }
+            }
 
             unchecked {
-                ++_i;
+                ++_j;
             }
         }
 
@@ -244,7 +259,6 @@ contract BPLockManager is IBPLockManager {
             );
             
         } else {
-
             // Call tentacle to mint tokens
             _tentacle.tentacle.mint(_beneficiary, _amount);
         }
