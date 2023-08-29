@@ -13,7 +13,7 @@ contract OptimismTentacleHelper is IBPTentacleHelper {
      */
     address immutable l2TokenAddress;
 
-    uint32 constant l2MinGasLimit = 200_000;
+    uint32 constant l2MinGasLimit = 100_000;
     
 
     OPL1StandardBridge immutable bridge;
@@ -35,7 +35,6 @@ contract OptimismTentacleHelper is IBPTentacleHelper {
         uint256 _amount,
         address _beneficiary
     ) external override {
-
         bridge.depositERC20To(
             address(l1TokenAddress),
             l2TokenAddress,

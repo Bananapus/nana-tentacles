@@ -231,7 +231,7 @@ contract BPLockManager is IBPLockManager {
         if(address(_tentacle.tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleID);
         
         // Figure out the helper we should use
-        // TODO: add a reserved address that specifies the case for 'if there is a (unenforced) default I would still prefer the 0 address flow instead'
+        // TODO: add a reserved address (BPConstants.NO_HELPER_CONTRACT) that specifies the case for 'if there is a (unenforced) default I would still prefer the 0 address flow instead'
         IBPTentacleHelper _helper = _helperOverride;
         if( _tentacle.hasDefaultHelper && ( _tentacle.forceDefault || address(_helper) == address(0) ) ) {
             IBPTentacleHelper _defaultHelper = defaultTentacleHelper[_tentacleID];

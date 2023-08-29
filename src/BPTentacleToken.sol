@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "lib/solmate/src/tokens/ERC20.sol";
 import "src/interfaces/IBPTentacle.sol";
+import "lib/solmate/src/tokens/ERC20.sol";
+import {ERC165} from "lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol";
 
-contract BPTentacleToken is ERC20, IBPTentacle {
+contract BPTentacleToken is ERC20, ERC165, IBPTentacle {
     error NOT_LOCK_MANAGER();
 
     address immutable lockManager;
