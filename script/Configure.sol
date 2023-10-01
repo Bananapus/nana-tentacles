@@ -6,7 +6,6 @@ import "./ConfigureOPTentacle.sol";
 import "src/BPLockManager.sol";
 
 contract ConfigureManagerScript is ConfigureOPTentacleScript {
-
     string L1_RPC = "https://gateway.tenderly.co/public/goerli";
     IStakingDelegate L1_STAKING_DELEGATE = IStakingDelegate(0x3281688433Be4409A1E64bD604605a57328db416);
 
@@ -26,7 +25,7 @@ contract ConfigureManagerScript is ConfigureOPTentacleScript {
     }
 
     function run() public {
-        // 
+        //
         uint256 _L1Fork = vm.createSelectFork(L1_RPC);
         vm.broadcast();
         BPLockManager _lockManager = new BPLockManager(L1_STAKING_DELEGATE);
@@ -85,4 +84,3 @@ contract ConfigureManagerScript is ConfigureOPTentacleScript {
         console2.log("L1 Lockmanager is ", address(_lockManager));
     }
 }
-

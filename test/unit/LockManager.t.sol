@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 // import {StdStorage, stdStorage} from "./StdStorage.sol";
+
 import {Test, console2, StdStorage, stdStorage} from "forge-std/Test.sol";
 import "../util/DSTestFull.sol";
 import "../../src/BPLockManager.sol";
@@ -23,52 +24,29 @@ contract LockManagerUnitTest is DSTestFull {
         _lockManager = new ForTest_BPLockManager(_delegate);
     }
 
-
-    function test_create(
-        address _user,
-        address _beneficiary,
-        uint256 _tokenID,
-        uint256 _tokenStake,
-        uint8 _tentacleID
-    ) public {
+    function test_create(address _user, address _beneficiary, uint256 _tokenID, uint256 _tokenStake, uint8 _tentacleID)
+        public
+    {
         // Mock the tentacle
-        IBPTentacle _tentacle = configure_and_mock_tentacle(
-            _lockManager,
-            _tentacleID
-        );
+        IBPTentacle _tentacle = configure_and_mock_tentacle(_lockManager, _tentacleID);
 
         // Mock the delegate
         mock_delegate_tokenStake(_tokenID, _tokenStake);
-        mock_delegate_approval( _tokenID, _user, true);
+        mock_delegate_approval(_tokenID, _user, true);
         mock_delegate_lockManagerIsSet(_tokenID, _lockManager);
 
         // It should call the tentacle to perform the mint
-        vm.expectCall(
-            address(_tentacle),
-            abi.encodeCall(_tentacle.mint, (_beneficiary, _tokenStake))
-        );
+        vm.expectCall(address(_tentacle), abi.encodeCall(_tentacle.mint, (_beneficiary, _tokenStake)));
 
         // Check that the tentacle has not been created yet
-        assertEq(
-            _lockManager.tenacleCreated(_tokenID, _tentacleID),
-            false
-        );
+        assertEq(_lockManager.tenacleCreated(_tokenID, _tentacleID), false);
 
         vm.prank(_user);
-        _lockManager.create(
-            _tentacleID,
-            _tokenID,
-            _beneficiary,
-             IBPTentacleHelper(address(0))
-        );
+        _lockManager.create(_tentacleID, _tokenID, _beneficiary, IBPTentacleHelper(address(0)));
 
         // Check that it is not registered
-        assertEq(
-            _lockManager.tenacleCreated(_tokenID, _tentacleID),
-            true
-        );
+        assertEq(_lockManager.tenacleCreated(_tokenID, _tentacleID), true);
     }
-
 
     function test_create_lockManagerNotSet_reverts(
         address _user,
@@ -81,28 +59,18 @@ contract LockManagerUnitTest is DSTestFull {
         vm.assume(_lockManager != _configuredLockManager);
 
         // Mock the tentacle
-        configure_and_mock_tentacle(
-            _lockManager,
-            _tentacleID
-        );
+        configure_and_mock_tentacle(_lockManager, _tentacleID);
 
         // Mock the delegate
         mock_delegate_tokenStake(_tokenID, _tokenStake);
-        mock_delegate_approval( _tokenID, _user, true);
+        mock_delegate_approval(_tokenID, _user, true);
         mock_delegate_lockManagerIsSet(_tokenID, _configuredLockManager);
 
         // It should call the tentacle to perform the mint
-        vm.expectRevert(
-            abi.encodeWithSelector(NOT_SET_AS_LOCKMANAGER.selector, _tokenID)
-        );
+        vm.expectRevert(abi.encodeWithSelector(NOT_SET_AS_LOCKMANAGER.selector, _tokenID));
 
         vm.prank(_user);
-        _lockManager.create(
-            _tentacleID,
-            _tokenID,
-            _beneficiary,
-             IBPTentacleHelper(address(0))
-        );
+        _lockManager.create(_tentacleID, _tokenID, _beneficiary, IBPTentacleHelper(address(0)));
     }
 
     function test_create_tentacleNotSet(
@@ -114,68 +82,39 @@ contract LockManagerUnitTest is DSTestFull {
     ) public {
         // Mock the delegate
         mock_delegate_tokenStake(_tokenID, _tokenStake);
-        mock_delegate_approval( _tokenID, _user, true);
+        mock_delegate_approval(_tokenID, _user, true);
         mock_delegate_lockManagerIsSet(_tokenID, _lockManager);
 
         // It should call the tentacle to perform the mint
-        vm.expectRevert(
-            abi.encodeWithSelector(TENTACLE_NOT_SET.selector, _tentacleID)
-        );
+        vm.expectRevert(abi.encodeWithSelector(TENTACLE_NOT_SET.selector, _tentacleID));
 
         vm.prank(_user);
-        _lockManager.create(
-            _tentacleID,
-            _tokenID,
-            _beneficiary,
-            IBPTentacleHelper(address(0))
-        );
+        _lockManager.create(_tentacleID, _tokenID, _beneficiary, IBPTentacleHelper(address(0)));
     }
 
+    function mock_delegate_lockManagerIsSet(uint256 _tokenID, BPLockManager __lockManager) internal {
+        // Build the mock call
+        vm.mockCall(address(_delegate), 0, abi.encodeCall(_delegate.lockManager, (_tokenID)), abi.encode(__lockManager));
+    }
 
-    function mock_delegate_lockManagerIsSet(
-        uint256 _tokenID,
-        BPLockManager __lockManager
-    ) internal {
+    function mock_delegate_approval(uint256 _tokenID, address _spender, bool _state) internal {
         // Build the mock call
         vm.mockCall(
-            address(_delegate),
-            0,
-            abi.encodeCall(_delegate.lockManager, (_tokenID)),
-            abi.encode(__lockManager)
+            address(_delegate), 0, abi.encodeCall(_delegate.isApprovedOrOwner, (_spender, _tokenID)), abi.encode(_state)
         );
     }
 
-    function mock_delegate_approval(
-        uint256 _tokenID,
-        address _spender,
-        bool _state
-    ) internal {
+    function mock_delegate_tokenStake(uint256 _tokenID, uint256 _tokenStake) internal {
         // Build the mock call
         vm.mockCall(
-            address(_delegate),
-            0,
-            abi.encodeCall(_delegate.isApprovedOrOwner, (_spender, _tokenID)),
-            abi.encode(_state)
+            address(_delegate), 0, abi.encodeCall(_delegate.stakingTokenBalance, (_tokenID)), abi.encode(_tokenStake)
         );
     }
 
-    function mock_delegate_tokenStake(
-        uint256 _tokenID,
-        uint256 _tokenStake
-    ) internal {
-        // Build the mock call
-        vm.mockCall(
-            address(_delegate),
-            0,
-            abi.encodeCall(_delegate.stakingTokenBalance, (_tokenID)),
-            abi.encode(_tokenStake)
-        );
-    }
-
-    function configure_and_mock_tentacle(
-        ForTest_BPLockManager __lockManager,
-        uint8 _tentacleId
-    ) internal returns(IBPTentacle) {
+    function configure_and_mock_tentacle(ForTest_BPLockManager __lockManager, uint8 _tentacleId)
+        internal
+        returns (IBPTentacle)
+    {
         IBPTentacle _tentacle = IBPTentacle(_mockContract("tentacle"));
 
         __lockManager.setTentacleConfiguration(
@@ -196,8 +135,6 @@ contract LockManagerUnitTest is DSTestFull {
 
         return _tentacle;
     }
-    
-    
 
     // function testToggle(bytes32 _outstandingTentacles, uint8 _id) public pure {
     //     // Get the state it was in initially
@@ -219,11 +156,8 @@ contract LockManagerUnitTest is DSTestFull {
     // }
 }
 
-
 contract ForTest_BPLockManager is BPLockManager {
-
     constructor(IStakingDelegate _stakingDelegate) BPLockManager(_stakingDelegate) {}
-
 
     function setTentacleConfiguration(uint8 _tentacleID, TentacleConfiguration memory _configuration) public {
         tentacles[_tentacleID] = _configuration;

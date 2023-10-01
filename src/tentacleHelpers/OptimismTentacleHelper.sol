@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import { IBPTentacleHelper, IBPTentacle } from "src/interfaces/IBPTentacleHelper.sol";
+import {IBPTentacleHelper, IBPTentacle} from "src/interfaces/IBPTentacleHelper.sol";
 import "lib/solmate/src/tokens/ERC20.sol";
 
 contract OptimismTentacleHelper is IBPTentacleHelper {
-
     ERC20 immutable l1TokenAddress;
 
     /**
@@ -14,11 +13,10 @@ contract OptimismTentacleHelper is IBPTentacleHelper {
     address immutable l2TokenAddress;
 
     uint32 constant l2MinGasLimit = 100_000;
-    
 
     OPL1StandardBridge immutable bridge;
 
-    constructor (ERC20 _l1TokenAddress, address _l2TokenAddress, OPL1StandardBridge _bridge) {
+    constructor(ERC20 _l1TokenAddress, address _l2TokenAddress, OPL1StandardBridge _bridge) {
         l1TokenAddress = _l1TokenAddress;
         l2TokenAddress = _l2TokenAddress;
         bridge = _bridge;
@@ -28,24 +26,10 @@ contract OptimismTentacleHelper is IBPTentacleHelper {
         _l1TokenAddress.approve(address(_bridge), type(uint256).max);
     }
 
-    function createFor(
-        uint8,
-        IBPTentacle,
-        uint256,
-        uint256 _amount,
-        address _beneficiary
-    ) external override {
-        bridge.depositERC20To(
-            address(l1TokenAddress),
-            l2TokenAddress,
-            _beneficiary,
-            _amount,
-            l2MinGasLimit,
-            bytes('')
-        );
+    function createFor(uint8, IBPTentacle, uint256, uint256 _amount, address _beneficiary) external override {
+        bridge.depositERC20To(address(l1TokenAddress), l2TokenAddress, _beneficiary, _amount, l2MinGasLimit, bytes(""));
     }
 }
-
 
 interface OPL1StandardBridge {
     /**
@@ -69,5 +53,4 @@ interface OPL1StandardBridge {
         uint32 _minGasLimit,
         bytes calldata _extraData
     ) external;
-
 }

@@ -10,12 +10,9 @@ contract BPTentacleToken is ERC20, ERC165, IBPTentacle {
 
     address immutable lockManager;
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        uint8 _decimals,
-        address _lockManager
-    ) ERC20(_name, _symbol, _decimals) {
+    constructor(string memory _name, string memory _symbol, uint8 _decimals, address _lockManager)
+        ERC20(_name, _symbol, _decimals)
+    {
         lockManager = _lockManager;
     }
 
@@ -24,11 +21,7 @@ contract BPTentacleToken is ERC20, ERC165, IBPTentacle {
         _mint(_to, _amount);
     }
 
-    function burn(
-        address ,
-        address _from,
-        uint256 _amount
-    ) external override {
+    function burn(address, address _from, uint256 _amount) external override {
         if (msg.sender != lockManager) revert NOT_LOCK_MANAGER();
         _burn(_from, _amount);
     }
