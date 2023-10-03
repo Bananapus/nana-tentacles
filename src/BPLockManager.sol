@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 import {IBPTentacle} from "./interfaces/IBPTentacle.sol";
 import {IBPTentacleHelper} from "./interfaces/IBPTentacleHelper.sol";
