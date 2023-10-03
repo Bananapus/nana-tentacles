@@ -10,13 +10,11 @@ pragma solidity ^0.8.16;
 interface IBPLockManager {
     /**
      * @notice hook (optionally) called upon registration to simplify UX
-     * @param _payer the person who send the transaction and paid for the staked position
      * @param _beneficiary the person who received the staked position
      * @param _tokenIDs the id of the token being locked
      * @param _data data regarding the lock as send by the user, can be any data.
      */
     function onRegistration(
-        address _payer,
         address _beneficiary,
         uint256 _stakingAmount,
         uint256[] memory _tokenIDs,
