@@ -7,12 +7,11 @@ import {IBPTentacle} from "./interfaces/IBPTentacle.sol";
 
 /// @notice A standard tentacle token.
 contract BPTentacleToken is ERC20, ERC165, IBPTentacle {
-
     error UNAUTHORIZED();
-    
+
     /// @notice The lock manager that has exlusive access to mint and burn this token.
     address immutable lockManager;
-    
+
     /// @param _name The name of the token.
     /// @param _symbol The symbol of this token.
     /// @param _decimals The number of decimals to expect in this token's fixed point accounting.
@@ -22,7 +21,7 @@ contract BPTentacleToken is ERC20, ERC165, IBPTentacle {
     {
         lockManager = _lockManager;
     }
-    
+
     /// @notice Mints this token.
     /// @param _to The address that should receive the newly minted token.
     /// @param _amount The amount to mint.

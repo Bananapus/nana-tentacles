@@ -24,9 +24,8 @@ struct TentacleConfiguration {
     IBPTentacle tentacle;
 }
 
-/// @notice A contract that manages the locking of staked 721s. 
+/// @notice A contract that manages the locking of staked 721s.
 contract BPLockManager is IBPLockManager {
-
     //*********************************************************************//
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
@@ -50,7 +49,7 @@ contract BPLockManager is IBPLockManager {
     // --------------------- public stored properties -------------------- //
     //*********************************************************************//
 
-    /// @notice The outstanding tentacles for each staked 721. 
+    /// @notice The outstanding tentacles for each staked 721.
     /// @dev The index of the activated bits identify which tentacles are outstanding. ex. `0x5` means that both tentacles with IDs 0 and 2 are outstanding
     /// @custom:param The token ID to which the outstanding tentacles belong.
     mapping(uint256 _tokenId => bytes32) outstandingTentacles;
@@ -70,7 +69,7 @@ contract BPLockManager is IBPLockManager {
 
     /// @notice A flag indicating if the tentacle is unlocked.
     /// @param _stakingDelegate The staking delegate address relative to which the lock being checked applies.
-    /// @param _tokenId The ID of the token to check. 
+    /// @param _tokenId The ID of the token to check.
     function isUnlocked(address _stakingDelegate, uint256 _tokenId) external view override returns (bool) {
         // Only check locking status for the expected staking delegate.
         if (_stakingDelegate != address(stakingDelegate)) return true;
@@ -78,7 +77,7 @@ contract BPLockManager is IBPLockManager {
         // Check if no bits are set, if none are then this token is unlocked
         return uint256(outstandingTentacles[_tokenId]) == 0;
     }
-    
+
     /// @notice A flag indicating if the specified tentacle has been created for the specified token ID.
     /// @param _tokenId The ID of the token to check for.
     /// @param _tentacleId The ID of the tentacle to check.
@@ -90,7 +89,7 @@ contract BPLockManager is IBPLockManager {
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
     //*********************************************************************//
-    
+
     /// @param _stakingDelegate The 721 staking delegate that this lock manager manages.
     constructor(IStakingDelegate _stakingDelegate) {
         stakingDelegate = _stakingDelegate;
@@ -131,7 +130,7 @@ contract BPLockManager is IBPLockManager {
         for (uint256 _j; _j < _numberOfTokens;) {
             // Keep a reference to the amount of staked tokens represented by the token.
             uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenIds[_j]);
-            
+
             // Loop through each tentacle
             for (uint256 _i; _i < _numberOfTentacles;) {
                 // Create the tentacle.
@@ -155,7 +154,6 @@ contract BPLockManager is IBPLockManager {
     /// @param _tokenId The id of the token being redeemed.
     /// @param _owner The current owner of the token.
     function onRedeem(uint256 _tokenId, address _owner) external override {
-
         // Make sure only the hook is being called by the staking delegate.
         if (msg.sender != address(stakingDelegate)) revert ONLY_DELEGATE();
 
@@ -165,7 +163,7 @@ contract BPLockManager is IBPLockManager {
         // If no tentacles are set, there's nothing to do.
         if (uint256(_outstandingTentacles) == 0) return;
 
-        // Attempt to destroy each entry in the bitmap outstanding. 
+        // Attempt to destroy each entry in the bitmap outstanding.
         for (uint256 _i; _i < 256;) {
             // Check if the tentacle has been created and attempt to destroy it.
             if (_tentacleIsOutstanding(_outstandingTentacles, uint8(_i))) _destroy(uint8(_i), _tokenId, _owner, _owner);
@@ -216,7 +214,7 @@ contract BPLockManager is IBPLockManager {
         // TODO: emit event?
         // answer: yes
     }
-    
+
     /// @notice Sets a tentacle implementation for the given ID.
     /// @param _tentacleId The ID to set the tentacle for.
     /// @param _configuration The details of the tentacle being set.
@@ -295,7 +293,7 @@ contract BPLockManager is IBPLockManager {
             _tentacle.tentacle.mint(_beneficiary, _size);
         }
     }
-    
+
     /// @notice Destroys a tentacle.
     /// @param _tentacleId The ID of the tentacle being destroyed.
     /// @param _tokenId The ID of the staked token to which the tentacle belongs.
@@ -331,8 +329,12 @@ contract BPLockManager is IBPLockManager {
     /// @notice Wraps a bitshift operation to set the given ID in the given bitmap.
     /// @param _outstandingTentacles The bitmap to set within.
     /// @param _id The ID to set within the bitmap.
-    /// @return updatedOutstandingTentacles The new bitmap.  
-    function _setTentacle(bytes32 _outstandingTentacles, uint8 _id) internal pure returns (bytes32 updatedOutstandingTentacles) {
+    /// @return updatedOutstandingTentacles The new bitmap.
+    function _setTentacle(bytes32 _outstandingTentacles, uint8 _id)
+        internal
+        pure
+        returns (bytes32 updatedOutstandingTentacles)
+    {
         assembly {
             updatedOutstandingTentacles := or(shl(_id, 1), _outstandingTentacles)
         }
@@ -341,7 +343,7 @@ contract BPLockManager is IBPLockManager {
     /// @notice Wraps a bitshift operation to unset the given ID in the given bitmap.
     /// @param _outstandingTentacles The bitmap to unset within.
     /// @param _id The ID to unset within the bitmap.
-    /// @return updatedOutstandingTentacles The new bitmap. 
+    /// @return updatedOutstandingTentacles The new bitmap.
     function _unsetTentacle(bytes32 _outstandingTentacles, uint8 _id)
         internal
         pure
