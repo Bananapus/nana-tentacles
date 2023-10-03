@@ -6,11 +6,6 @@ import {IBPTentacleHelper} from "./interfaces/IBPTentacleHelper.sol";
 import {IBPLockManager} from "./interfaces/IBPLockManager.sol";
 import {IStakingDelegate} from "./interfaces/IStakingDelegate.sol";
 
-enum TENTACLE_STATE {
-    NONE,
-    CREATED
-}
-
 /// @custom:member id The ID of the tentacle being created.
 /// @custom:member helper The helper to use for creating the tentacle.
 struct TentacleCreateData {
