@@ -110,31 +110,32 @@ contract BPLockManager is IBPLockManager {
         uint256[] memory _tokenIDs,
         bytes calldata _data
     ) external override {
+        // NOTICE: The user provides this data we have to make sure we protect against specifying the same tentacle multiple times
         _payer;
         _stakingAmount;
 
         // Make sure only the delegate can call this
         if (msg.sender != address(stakingDelegate)) revert ONLY_DELEGATE();
-        // NOTICE: The user provides this data we have to make sure we protect against specifying the same tentacle multiple times
+        
         (TentacleCreateData[] memory _tentacleData) = abi.decode(_data, (TentacleCreateData[]));
         uint256 _tokenCount = _tokenIDs.length;
 
-        // TODO: this is very ineffecient how we are doing it now,
-        // we should register each token and then bulk create for all at once (using `_stakingAmount`)
-        uint256 _nTentacles = _tentacleData.length;
-        for (uint256 _j; _j < _tokenCount;) {
-            uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenIDs[_j]);
-
-            for (uint256 _i; _i < _nTentacles;) {
-                _create(_tentacleData[_i].id, _tokenIDs[_j], _beneficiary, _amount, _tentacleData[_i].helper);
-
-                unchecked {
-                    ++_i;
-                }
-            }
-
+        // Verify that these all these tokens can be registered for the tentacles and register them 
+        uint256 _totalTokenCount;
+        for(uint256 _i; _i < _tokenCount;) {
+            _checkAndRegisterTentacles(_tokenIDs[_i], _tentacleData);
+            _totalTokenCount += stakingDelegate.stakingTokenBalance(_tokenIDs[_i]);
             unchecked {
-                ++_j;
+                ++_i;
+            }
+        }
+
+        // For each tentacle we mint all the positions at once
+        uint256 _nTentacles = _tentacleData.length;
+        for (uint256 _i; _i < _nTentacles;) {
+            _create(_tentacleData[_i].id, _tokenIDs, _beneficiary, _totalTokenCount, _tentacleData[_i].helper);
+            unchecked {
+                ++_i;
             }
         }
 
@@ -177,8 +178,13 @@ contract BPLockManager is IBPLockManager {
 
         // Get the value of the token
         uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenID);
+        uint256[] memory _tokenIds = new uint256[](1);
+        _tokenIds[0] = _tokenID;
 
-        _create(_tentacleID, _tokenID, _beneficiary, _amount, _helperOverride);
+        // Check if the tentacle can be registered and set it as registered
+        _registerTentacle(_tentacleID, _tokenID);
+        // Create the position
+        _create(_tentacleID, _tokenIds, _beneficiary, _amount, _helperOverride);
 
         // TODO: emit event?
     }
@@ -211,16 +217,36 @@ contract BPLockManager is IBPLockManager {
     // ---------------------- internal transactions ---------------------- //
     //*********************************************************************//
 
-    function _create(
-        uint8 _tentacleID,
+    function _checkAndRegisterTentacles(
         uint256 _tokenID,
-        address _beneficiary,
-        uint256 _amount,
-        IBPTentacleHelper _helperOverride
+        TentacleCreateData[] memory _tentacles
     ) internal {
-        // NOTICE: this does not perform access control checks!
+        bytes32 _outstandingTentacles = outstandingTentacles[_tokenID];
 
-        // Check that the tentacle hasn't been created yet for this token
+        for (uint256 _i; _i < _tentacles.length;) {
+            // Check if this tentacle has already been registered
+            if (_getTentacle(_outstandingTentacles, _tentacles[_i].id) == TENTACLE_STATE.CREATED) {
+                revert ALREADY_CREATED(_tentacles[_i].id, _tokenID);
+            }
+
+            // Register it
+            _outstandingTentacles = _setTentacle(_outstandingTentacles, _tentacles[_i].id);
+
+            unchecked {
+                ++_i;
+            }
+        }
+
+        // Update all the newly registered tentacles at once
+        outstandingTentacles[_tokenID] = _outstandingTentacles;
+    }
+
+
+    function _registerTentacle(
+        uint8 _tentacleID,
+        uint256 _tokenID
+    ) internal {
+         // Check that the tentacle hasn't been created yet for this token
         bytes32 _outstandingTentacles = outstandingTentacles[_tokenID];
         if (_getTentacle(_outstandingTentacles, _tentacleID) == TENTACLE_STATE.CREATED) {
             revert ALREADY_CREATED(_tentacleID, _tokenID);
@@ -228,6 +254,25 @@ contract BPLockManager is IBPLockManager {
 
         // Update to reflect that the tentacle has been created
         outstandingTentacles[_tokenID] = _setTentacle(_outstandingTentacles, _tentacleID);
+    }
+
+    function _create(
+        uint8 _tentacleID,
+        uint256[] memory _tokenIDs,
+        address _beneficiary,
+        uint256 _amount,
+        IBPTentacleHelper _helperOverride
+    ) internal {
+        // NOTICE: this does not perform access control checks!
+
+        // // Check that the tentacle hasn't been created yet for this token
+        // bytes32 _outstandingTentacles = outstandingTentacles[_tokenID];
+        // if (_getTentacle(_outstandingTentacles, _tentacleID) == TENTACLE_STATE.CREATED) {
+        //     revert ALREADY_CREATED(_tentacleID, _tokenID);
+        // }
+
+        // // Update to reflect that the tentacle has been created
+        // outstandingTentacles[_tokenID] = _setTentacle(_outstandingTentacles, _tentacleID);
 
         // Get the tentacle that we are minting
         TentacleConfiguration memory _tentacle = tentacles[_tentacleID];
@@ -253,7 +298,7 @@ contract BPLockManager is IBPLockManager {
             // Mint to the helper
             _tentacle.tentacle.mint(address(_helper), _amount);
             // Call the helper to perform its actions
-            _helper.createFor(_tentacleID, _tentacle.tentacle, _tokenID, _amount, _beneficiary);
+            _helper.createFor(_tentacleID, _tentacle.tentacle, _tokenIDs, _amount, _beneficiary);
         } else {
             // Call tentacle to mint tokens
             _tentacle.tentacle.mint(_beneficiary, _amount);

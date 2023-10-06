@@ -8,7 +8,7 @@ interface IBPTentacleHelper {
     function createFor(
         uint8 _tentacleId,
         IBPTentacle _tentacle,
-        uint256 _tokenId,
+        uint256[] memory _tokenIds,
         uint256 _amount,
         address _beneficiary
     ) external;
