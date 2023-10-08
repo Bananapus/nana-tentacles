@@ -123,7 +123,7 @@ contract BPLockManager is IBPLockManager {
         // Verify that these all these tokens can be registered for the tentacles and register them 
         uint256 _totalTokenCount;
         for(uint256 _i; _i < _tokenCount;) {
-            _checkAndRegisterTentacles(_tokenIDs[_i], _tentacleData);
+            _registerTentacles(_tokenIDs[_i], _tentacleData);
             _totalTokenCount += stakingDelegate.stakingTokenBalance(_tokenIDs[_i]);
             unchecked {
                 ++_i;
@@ -217,7 +217,7 @@ contract BPLockManager is IBPLockManager {
     // ---------------------- internal transactions ---------------------- //
     //*********************************************************************//
 
-    function _checkAndRegisterTentacles(
+    function _registerTentacles(
         uint256 _tokenID,
         TentacleCreateData[] memory _tentacles
     ) internal {
@@ -264,15 +264,6 @@ contract BPLockManager is IBPLockManager {
         IBPTentacleHelper _helperOverride
     ) internal {
         // NOTICE: this does not perform access control checks!
-
-        // // Check that the tentacle hasn't been created yet for this token
-        // bytes32 _outstandingTentacles = outstandingTentacles[_tokenID];
-        // if (_getTentacle(_outstandingTentacles, _tentacleID) == TENTACLE_STATE.CREATED) {
-        //     revert ALREADY_CREATED(_tentacleID, _tokenID);
-        // }
-
-        // // Update to reflect that the tentacle has been created
-        // outstandingTentacles[_tokenID] = _setTentacle(_outstandingTentacles, _tentacleID);
 
         // Get the tentacle that we are minting
         TentacleConfiguration memory _tentacle = tentacles[_tentacleID];
