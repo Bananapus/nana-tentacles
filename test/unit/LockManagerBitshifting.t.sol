@@ -9,19 +9,19 @@ contract LockManagerBitshiftingTest is BPLockManager, Test {
 
     function testToggle(bytes32 _outstandingTentacles, uint8 _id) public pure {
         // Get the state it was in initially
-        TENTACLE_STATE _state = _getTentacle(_outstandingTentacles, _id);
+        bool _isOutstanding = _tentacleIsOutstanding(_outstandingTentacles, _id);
 
         // Toggle the value
-        if (_state == TENTACLE_STATE.NONE) {
+        if (!_isOutstanding) {
             _outstandingTentacles = _setTentacle(_outstandingTentacles, _id);
         } else {
             _outstandingTentacles = _unsetTentacle(_outstandingTentacles, _id);
         }
 
         // Get the new state
-        TENTACLE_STATE _newState = _getTentacle(_outstandingTentacles, _id);
+        bool _newIsOutstanding= _tentacleIsOutstanding(_outstandingTentacles, _id);
 
         // Make sure that it was toggeled
-        assert(_state != _newState);
+        assert(_isOutstanding != _newIsOutstanding);
     }
 }

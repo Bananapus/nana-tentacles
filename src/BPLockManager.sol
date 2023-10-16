@@ -1,93 +1,96 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 import {IBPTentacle} from "./interfaces/IBPTentacle.sol";
 import {IBPTentacleHelper} from "./interfaces/IBPTentacleHelper.sol";
 import {IBPLockManager} from "./interfaces/IBPLockManager.sol";
 import {IStakingDelegate} from "./interfaces/IStakingDelegate.sol";
 
-enum TENTACLE_STATE {
-    NONE,
-    CREATED
-}
-
+/// @custom:member id The ID of the tentacle being created.
+/// @custom:member helper The helper to use for creating the tentacle.
 struct TentacleCreateData {
     uint8 id;
     IBPTentacleHelper helper;
 }
 
+/// @custom:member hasDefaultHelper Defines if a default helper is set (saves us an sload to check).
+/// @custom:member forceDefault Defines if a default helper is set (saves us an sload to check).
+/// @custom:member revertIfDefaultForcedAndOverriden If a forced default is set and the user provides an override, should this cause a revert, or should we not revert and use the forced default.
+/// @custom:member tentacle The tentacle address.
 struct TentacleConfiguration {
-    // Defines if a default helper is set (saves us an sload to check)
     bool hasDefaultHelper;
-    // Should overrides be disabled
     bool forceDefault;
-    // If a forced default is set and the user provides an override,
-    // should this cause a revert, or should we not revert and use the forced default
     bool revertIfDefaultForcedAndOverriden;
-    // ... room for some flags
     IBPTentacle tentacle;
 }
 
+/// @notice A contract that manages the locking of staked 721s.
 contract BPLockManager is IBPLockManager {
     //*********************************************************************//
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
+
     error ONLY_DELEGATE();
-    error INVALID_DELEGATE();
     error NOT_SET_AS_LOCKMANAGER(uint256 _tokenId);
-    error NOT_ALLOWED(uint256 _tokenId);
-    error ALREADY_CREATED(uint8 _tentacleID, uint256 _tokenId);
-    error TENTACLE_NOT_SET(uint8 _tentacleID);
-    error TENTACLE_HAS_DEFAULT_HELPER(uint8 _tentacleID);
+    error ALREADY_CREATED(uint8 _tentacleId, uint256 _tokenId);
+    error NOT_CREATED(uint8 _tentacleId, uint256 _tokenId);
+    error TENTACLE_NOT_SET(uint8 _tentacleId);
+    error TENTACLE_HAS_DEFAULT_HELPER(uint8 _tentacleId);
+    error UNAUTHORIZED(uint256 _tokenId);
 
     //*********************************************************************//
     // ---------------- public immutable stored properties --------------- //
     //*********************************************************************//
 
-    /**
-     * @dev
-     * The delegate that this lockManager is for.
-     */
+    /// @notice The 721 staking delegate that this lock manager manages.
     IStakingDelegate immutable stakingDelegate;
 
     //*********************************************************************//
     // --------------------- public stored properties -------------------- //
     //*********************************************************************//
 
-    /**
-     * @dev
-     * The outstanding tentacles for each token. The index of the activated bits identify which tentacles are outstanding.
-     * ex. `0x5` means that both tentacleId 0 and 2 are outstanding
-     */
-    mapping(uint256 _tokenID => bytes32) outstandingTentacles;
+    /// @notice The outstanding tentacles for each staked 721.
+    /// @dev The index of the activated bits identify which tentacles are outstanding. ex. `0x5` means that both tentacles with IDs 0 and 2 are outstanding
+    /// @custom:param The token ID to which the outstanding tentacles belong.
+    mapping(uint256 _tokenId => bytes32) outstandingTentacles;
 
-    /**
-     * @dev
-     * Limited to be a `uint8` since this is the limit of the `outstandingTentacles` bitmap.
-     */
-    mapping(uint8 => TentacleConfiguration) public tentacles;
+    /// @notice The available tentacles for stakers to take out.
+    /// @dev Limited to be a `uint8` since this is the limit of the `outstandingTentacles` bitmap.
+    /// @custom:param The tentacle ID of each configuration.
+    mapping(uint8 _tentacleId => TentacleConfiguration) public tentacles;
 
-    mapping(uint8 => IBPTentacleHelper) public defaultTentacleHelper;
+    /// @notice The implementation of tentacle creation for each ID.
+    /// @custom:param The tentacle ID of each default helper.
+    mapping(uint8 _tentacleId => IBPTentacleHelper) public defaultTentacleHelper;
 
     //*********************************************************************//
     // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
-    function isUnlocked(address _token, uint256 _id) external view override returns (bool) {
-        // Safety precaution to make sure if another delegate accidentally has this as its lockManager it will not lock any tokens indefinetly
-        if (_token != address(stakingDelegate)) return true;
+    /// @notice A flag indicating if the tentacle is unlocked.
+    /// @param _stakingDelegate The staking delegate address relative to which the lock being checked applies.
+    /// @param _tokenId The ID of the token to check.
+    function isUnlocked(address _stakingDelegate, uint256 _tokenId) external view override returns (bool) {
+        // Only check locking status for the expected staking delegate.
+        if (_stakingDelegate != address(stakingDelegate)) return true;
+
         // Check if no bits are set, if none are then this token is unlocked
-        return uint256(outstandingTentacles[_id]) == 0;
+        return uint256(outstandingTentacles[_tokenId]) == 0;
     }
 
-    function tenacleCreated(uint256 _tokenID, uint8 _tentacleID) external view returns (bool) {
-        return _getTentacle(outstandingTentacles[_tokenID], _tentacleID) == TENTACLE_STATE.CREATED;
+    /// @notice A flag indicating if the specified tentacle has been created for the specified token ID.
+    /// @param _tokenId The ID of the token to check for.
+    /// @param _tentacleId The ID of the tentacle to check.
+    /// @return A flag indicating if the tentacle is outstanding.
+    function tenacleCreated(uint256 _tokenId, uint8 _tentacleId) external view returns (bool) {
+        return _tentacleIsOutstanding(outstandingTentacles[_tokenId], _tentacleId);
     }
 
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
     //*********************************************************************//
 
+    /// @param _stakingDelegate The 721 staking delegate that this lock manager manages.
     constructor(IStakingDelegate _stakingDelegate) {
         stakingDelegate = _stakingDelegate;
     }
@@ -96,35 +99,34 @@ contract BPLockManager is IBPLockManager {
     // ---------------------- external transactions ---------------------- //
     //*********************************************************************//
 
-    /**
-     * @notice hook that (optionally) gets called upon registration as a lockManager.
-     * @param _payer the person who send the transaction and paid for the staked position
-     * @param _beneficiary the person who received the staked position
-     * @param _tokenIDs The tokenID that got registered.
-     * @param _data data regarding the lock as send by the user
-     */
+    /// @notice A hook called by the staking delegate upon token creation.
+    /// @param _beneficiary The address who received the staked position.
+    /// @param _tokenIds The tokenIds that were registered.
+    /// @param _tokenIds The ids of the tokens being redeemed.
+    /// @param _data Metadata sent by the staker.
     function onRegistration(
-        address _payer,
         address _beneficiary,
         uint256 _stakingAmount,
-        uint256[] memory _tokenIDs,
+        uint256[] memory _tokenIds,
         bytes calldata _data
     ) external override {
-        // NOTICE: The user provides this data we have to make sure we protect against specifying the same tentacle multiple times
-        _payer;
         _stakingAmount;
 
-        // Make sure only the delegate can call this
+        // Make sure only the hook is being called by the staking delegate.
         if (msg.sender != address(stakingDelegate)) revert ONLY_DELEGATE();
-        
+
+        // Parse the data needed to create tentacles from the metadata sent by the staker.
+        // NOTICE: The user provides this data we have to make sure we protect against specifying the same tentacle multiple times
         (TentacleCreateData[] memory _tentacleData) = abi.decode(_data, (TentacleCreateData[]));
-        uint256 _tokenCount = _tokenIDs.length;
+
+        // Keep a reference to the number of tokens.
+        uint256 _numberOfTokens = _tokenIds.length;
 
         // Verify that these all these tokens can be registered for the tentacles and register them 
         uint256 _totalTokenCount;
-        for(uint256 _i; _i < _tokenCount;) {
-            _registerTentacles(_tokenIDs[_i], _tentacleData);
-            _totalTokenCount += stakingDelegate.stakingTokenBalance(_tokenIDs[_i]);
+        for(uint256 _i; _i < _numberOfTokens;) {
+            _registerTentacles(_tokenIds[_i], _tentacleData);
+            _totalTokenCount += stakingDelegate.stakingTokenBalance(_tokenIds[_i]);
             unchecked {
                 ++_i;
             }
@@ -133,73 +135,91 @@ contract BPLockManager is IBPLockManager {
         // For each tentacle we mint all the positions at once
         uint256 _nTentacles = _tentacleData.length;
         for (uint256 _i; _i < _nTentacles;) {
-            _create(_tentacleData[_i].id, _tokenIDs, _beneficiary, _totalTokenCount, _tentacleData[_i].helper);
+            _create(_tentacleData[_i].id, _tokenIds, _beneficiary, _totalTokenCount, _tentacleData[_i].helper);
             unchecked {
                 ++_i;
             }
         }
 
         // TODO: emit event?
+        // answer: yes
     }
 
-    /**
-     * @notice hook called upon redemption
-     * @param _tokenID the id of the token being redeemed
-     * @param _owner the current owner of the token
-     */
-    function onRedeem(uint256 _tokenID, address _owner) external override {
-        _tokenID;
-        // Make sure only the delegate can call this
+    /// @notice A hook called by the staking delegate upon token redemption.
+    /// @param _tokenId The id of the token being redeemed.
+    /// @param _owner The current owner of the token.
+    function onRedeem(uint256 _tokenId, address _owner) external override {
+        // Make sure only the hook is being called by the staking delegate.
         if (msg.sender != address(stakingDelegate)) revert ONLY_DELEGATE();
-        bytes32 _outstandingTentacles = outstandingTentacles[_tokenID];
 
-        // Perform a quick check to see if any are set, if none are set we can do a quick return
+        // Keep a refeerence to the outstanding tentacles for the token being redeemed.
+        bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
+
+        // If no tentacles are set, there's nothing to do.
         if (uint256(_outstandingTentacles) == 0) return;
 
+        // Attempt to destroy each entry in the bitmap outstanding.
         for (uint256 _i; _i < 256;) {
-            // Check if the tentacle has been created, if it has attempt to destroy it
-            if (_getTentacle(_outstandingTentacles, uint8(_i)) == TENTACLE_STATE.CREATED) {
-                _destroy(uint8(_i), _tokenID, _owner, _owner);
-            }
+            // Check if the tentacle has been created and attempt to destroy it.
+            if (_tentacleIsOutstanding(_outstandingTentacles, uint8(_i))) _destroy(uint8(_i), _tokenId, _owner, _owner);
 
             unchecked {
                 ++_i;
             }
         }
+
+        // TODO: emit event?
+        // answer: yes
     }
 
-    function create(uint8 _tentacleID, uint256 _tokenID, address _beneficiary, IBPTentacleHelper _helperOverride)
+    /// @notice Create an outstanding tentacle.
+    /// @param _tentacleId The ID of the tentacle being created.
+    /// @param _tokenId The ID of the token to which the tentacle belongs.
+    /// @param _beneficiary The address that the tentacle being created should belong to.
+    /// @param _helperOverride not sure
+    function create(uint8 _tentacleId, uint256 _tokenId, address _beneficiary, IBPTentacleHelper _helperOverride)
         external
     {
-        // Make sure that this lockManager is in control of locking the token
-        if (stakingDelegate.lockManager(_tokenID) != address(this)) revert NOT_SET_AS_LOCKMANAGER(_tokenID);
-        // Check that the sender has permission to create tentacles for the token
-        if (!stakingDelegate.isApprovedOrOwner(msg.sender, _tokenID)) revert NOT_ALLOWED(_tokenID);
+        // Make sure that this lock manager is in control of locking the specified token.
+        if (stakingDelegate.lockManager(_tokenId) != address(this)) revert NOT_SET_AS_LOCKMANAGER(_tokenId);
+
+        // Make sure the caller owns the token being destroyed, or has been approved by the owner.
+        if (!stakingDelegate.isApprovedOrOwner(msg.sender, _tokenId)) revert UNAUTHORIZED(_tokenId);
 
         // Get the value of the token
-        uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenID);
+        uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenId);
         uint256[] memory _tokenIds = new uint256[](1);
-        _tokenIds[0] = _tokenID;
+        _tokenIds[0] = _tokenId;
 
         // Check if the tentacle can be registered and set it as registered
-        _registerTentacle(_tentacleID, _tokenID);
+        _registerTentacle(_tokenId, _tentacleId);
         // Create the position
-        _create(_tentacleID, _tokenIds, _beneficiary, _amount, _helperOverride);
+        _create(_tentacleId, _tokenIds, _beneficiary, _amount, _helperOverride);
 
         // TODO: emit event?
+        // answer: yes
     }
 
-    function destroy(uint8 _tentacleID, uint256 _tokenID) external {
-        // Check that the sender has permission to destroy tentacles for the token
-        if (!stakingDelegate.isApprovedOrOwner(msg.sender, _tokenID)) revert NOT_ALLOWED(_tokenID);
+    /// @notice Destroys an outstanding tentacle.
+    /// @param _tentacleId The ID of the tentacle being destroyed.
+    /// @param _tokenId The ID of the token to which the tentacle belongs.
+    function destroy(uint8 _tentacleId, uint256 _tokenId) external {
+        // Make sure the caller owns the token being destroyed, or has been approved by the owner.
+        if (!stakingDelegate.isApprovedOrOwner(msg.sender, _tokenId)) revert UNAUTHORIZED(_tokenId);
 
-        _destroy(_tentacleID, _tokenID, msg.sender, msg.sender);
+        // Destroy the tentacle.
+        _destroy(_tentacleId, _tokenId, msg.sender, msg.sender);
 
         // TODO: emit event?
+        // answer: yes
     }
 
+    /// @notice Sets a tentacle implementation for the given ID.
+    /// @param _tentacleId The ID to set the tentacle for.
+    /// @param _configuration The details of the tentacle being set.
+    /// @param _defaultHelper not sure
     function setTentacle(
-        uint8 _tentacleID,
+        uint8 _tentacleId,
         TentacleConfiguration calldata _configuration,
         IBPTentacleHelper _defaultHelper
     ) external {
@@ -207,26 +227,31 @@ contract BPLockManager is IBPLockManager {
         // TODO: Add owner check!
 
         // Should we allow a tentacle to be replaced?
-        tentacles[_tentacleID] = _configuration;
-        defaultTentacleHelper[_tentacleID] = _defaultHelper;
+        // answer: no. TODO
+        tentacles[_tentacleId] = _configuration;
+        defaultTentacleHelper[_tentacleId] = _defaultHelper;
 
         // TODO: emit event
+        // answer: yes
     }
 
     //*********************************************************************//
     // ---------------------- internal transactions ---------------------- //
     //*********************************************************************//
 
+    /// @notice Updates a tokenId to set multiple tentacles as registered.
+    /// @param _tokenId the token ID to update the tentacles for
+    /// @param _tentacles the tentacles to set as registered
     function _registerTentacles(
-        uint256 _tokenID,
+        uint256 _tokenId,
         TentacleCreateData[] memory _tentacles
     ) internal {
-        bytes32 _outstandingTentacles = outstandingTentacles[_tokenID];
+        bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
 
         for (uint256 _i; _i < _tentacles.length;) {
             // Check if this tentacle has already been registered
-            if (_getTentacle(_outstandingTentacles, _tentacles[_i].id) == TENTACLE_STATE.CREATED) {
-                revert ALREADY_CREATED(_tentacles[_i].id, _tokenID);
+            if (_tentacleIsOutstanding(_outstandingTentacles, _tentacles[_i].id)) {
+                revert ALREADY_CREATED(_tentacles[_i].id, _tokenId);
             }
 
             // Register it
@@ -238,48 +263,57 @@ contract BPLockManager is IBPLockManager {
         }
 
         // Update all the newly registered tentacles at once
-        outstandingTentacles[_tokenID] = _outstandingTentacles;
+        outstandingTentacles[_tokenId] = _outstandingTentacles;
     }
 
-
+    /// @notice Updates a tokenId to set a tentacles as registered.
+    /// @param _tokenId the token ID to update the tentacles for
+    /// @param _tentacleId the tentacle to set as registered
     function _registerTentacle(
-        uint8 _tentacleID,
-        uint256 _tokenID
+        uint256 _tokenId,
+        uint8 _tentacleId
     ) internal {
          // Check that the tentacle hasn't been created yet for this token
-        bytes32 _outstandingTentacles = outstandingTentacles[_tokenID];
-        if (_getTentacle(_outstandingTentacles, _tentacleID) == TENTACLE_STATE.CREATED) {
-            revert ALREADY_CREATED(_tentacleID, _tokenID);
+        bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
+        if (_tentacleIsOutstanding(_outstandingTentacles, _tentacleId)) {
+            revert ALREADY_CREATED(_tentacleId, _tokenId);
         }
 
         // Update to reflect that the tentacle has been created
-        outstandingTentacles[_tokenID] = _setTentacle(_outstandingTentacles, _tentacleID);
+        outstandingTentacles[_tokenId] = _setTentacle(_outstandingTentacles, _tentacleId);
     }
 
+    /// @notice Creates a tentacle.
+    /// @param _tentacleId The ID of the tentacle being created.
+    /// @param _tokenIds The IDs of the staked tokens to which the tentacle belongs.
+    /// @param _beneficiary The address that the tentacle being created should belong to.
+    /// @param _size The amount of the new tentacle being created.
+    /// @param _helperOverride not sure
     function _create(
-        uint8 _tentacleID,
-        uint256[] memory _tokenIDs,
+        uint8 _tentacleId,
+        uint256[] memory _tokenIds,
         address _beneficiary,
-        uint256 _amount,
+        uint256 _size,
         IBPTentacleHelper _helperOverride
     ) internal {
         // NOTICE: this does not perform access control checks!
 
-        // Get the tentacle that we are minting
-        TentacleConfiguration memory _tentacle = tentacles[_tentacleID];
+        // Keep a reference to the tentacle that is being created.
+        TentacleConfiguration memory _tentacle = tentacles[_tentacleId];
 
-        if (address(_tentacle.tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleID);
+        // Make sure the tentacle exists.
+        if (address(_tentacle.tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleId);
 
         // Figure out the helper we should use
         // TODO: add a reserved address (BPConstants.NO_HELPER_CONTRACT) that specifies the case for 'if there is a (unenforced) default I would still prefer the 0 address flow instead'
         IBPTentacleHelper _helper = _helperOverride;
         if (_tentacle.hasDefaultHelper && (_tentacle.forceDefault || address(_helper) == address(0))) {
-            IBPTentacleHelper _defaultHelper = defaultTentacleHelper[_tentacleID];
+            IBPTentacleHelper _defaultHelper = defaultTentacleHelper[_tentacleId];
 
             if (
                 _tentacle.revertIfDefaultForcedAndOverriden && _helperOverride != _defaultHelper
                     && address(_helperOverride) != address(0)
-            ) revert TENTACLE_HAS_DEFAULT_HELPER(_tentacleID);
+            ) revert TENTACLE_HAS_DEFAULT_HELPER(_tentacleId);
 
             _helper = _defaultHelper;
         }
@@ -287,60 +321,82 @@ contract BPLockManager is IBPLockManager {
         // Perform the mint, either use the helper flow or the regular flow
         if (address(_helper) != address(0)) {
             // Mint to the helper
-            _tentacle.tentacle.mint(address(_helper), _amount);
+            _tentacle.tentacle.mint(address(_helper), _size);
             // Call the helper to perform its actions
-            _helper.createFor(_tentacleID, _tentacle.tentacle, _tokenIDs, _amount, _beneficiary);
+            _helper.createFor(_tentacleId, _tentacle.tentacle, _tokenIds, _size, _beneficiary);
         } else {
             // Call tentacle to mint tokens
-            _tentacle.tentacle.mint(_beneficiary, _amount);
+            _tentacle.tentacle.mint(_beneficiary, _size);
         }
     }
 
-    function _destroy(uint8 _tentacleID, uint256 _tokenID, address _caller, address _from) internal {
-        // NOTICE: this does not perform access control checks!
+    /// @notice Destroys a tentacle.
+    /// @param _tentacleId The ID of the tentacle being destroyed.
+    /// @param _tokenId The ID of the staked token to which the tentacle belongs.
+    /// @param _caller The address that is destroying the tentacle.
+    /// @param _from The address that the tentacle is being destroyed from.
+    function _destroy(uint8 _tentacleId, uint256 _tokenId, address _caller, address _from) internal {
+        // Keep a reference to the amount of staked tokens represented by the token.
+        uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenId);
 
-        // Get the value of the token
-        uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenID);
+        // Keep a reference to the outstanding tentacles for the token.
+        bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
 
-        bytes32 _outstandingTentacles = outstandingTentacles[_tokenID];
-        if (_getTentacle(_outstandingTentacles, _tentacleID) == TENTACLE_STATE.CREATED) {
-            revert ALREADY_CREATED(_tentacleID, _tokenID);
-        }
+        // Make sure the tentacle being destroyed is outstanding.
+        if (!_tentacleIsOutstanding(_outstandingTentacles, _tentacleId)) revert NOT_CREATED(_tentacleId, _tokenId);
 
-        // Get the tentacle that we are burning for
-        TentacleConfiguration memory _tentacleConfiguration = tentacles[_tentacleID];
-        if (address(_tentacleConfiguration.tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleID);
+        // Get the tentacle that is being destroyed.
+        TentacleConfiguration memory _tentacleConfiguration = tentacles[_tentacleId];
 
-        // Call tentacle to burn tokens
+        // Make sure the tentacle exists.
+        if (address(_tentacleConfiguration.tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleId);
+
+        // Destroy the tentacle.
         _tentacleConfiguration.tentacle.burn(_caller, _from, _amount);
 
-        // Update to reflect that the tentacle has been destroyed
-        outstandingTentacles[_tokenID] = _unsetTentacle(_outstandingTentacles, _tentacleID);
+        // Store the new outstanding tentacle state.
+        outstandingTentacles[_tokenId] = _unsetTentacle(_outstandingTentacles, _tentacleId);
     }
 
     //*********************************************************************//
     // ------------------------- internal pure --------------------------- //
     //*********************************************************************//
 
-    function _setTentacle(bytes32 _outstandingTentacles, uint8 _id) internal pure returns (bytes32 _updatedTentacles) {
+    /// @notice Wraps a bitshift operation to set the given ID in the given bitmap.
+    /// @param _outstandingTentacles The bitmap to set within.
+    /// @param _id The ID to set within the bitmap.
+    /// @return updatedOutstandingTentacles The new bitmap.
+    function _setTentacle(bytes32 _outstandingTentacles, uint8 _id)
+        internal
+        pure
+        returns (bytes32 updatedOutstandingTentacles)
+    {
         assembly {
-            _updatedTentacles := or(shl(_id, 1), _outstandingTentacles)
+            updatedOutstandingTentacles := or(shl(_id, 1), _outstandingTentacles)
         }
     }
 
+    /// @notice Wraps a bitshift operation to unset the given ID in the given bitmap.
+    /// @param _outstandingTentacles The bitmap to unset within.
+    /// @param _id The ID to unset within the bitmap.
+    /// @return updatedOutstandingTentacles The new bitmap.
     function _unsetTentacle(bytes32 _outstandingTentacles, uint8 _id)
         internal
         pure
-        returns (bytes32 _updatedTentacles)
+        returns (bytes32 updatedOutstandingTentacles)
     {
         assembly {
-            _updatedTentacles := and(shl(_id, 0), _outstandingTentacles)
+            updatedOutstandingTentacles := and(shl(_id, 0), _outstandingTentacles)
         }
     }
 
-    function _getTentacle(bytes32 _outstandingTentacles, uint8 _id) internal pure returns (TENTACLE_STATE _state) {
+    /// @notice Wraps a bitshift operation to check if the given ID is marked as outstanding in the given bitmap.
+    /// @param _outstandingTentacles The bitmap to check within.
+    /// @param _id The ID to check within the bitmap.
+    /// @return flag A flag indicating if the specified tentacle is outstanding.
+    function _tentacleIsOutstanding(bytes32 _outstandingTentacles, uint8 _id) internal pure returns (bool flag) {
         assembly {
-            _state := iszero(iszero(and(shl(_id, 0x1), _outstandingTentacles)))
+            flag := iszero(iszero(and(shl(_id, 0x1), _outstandingTentacles)))
         }
     }
 }
