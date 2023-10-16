@@ -5,6 +5,11 @@ import {IBPLockManager} from "./IBPLockManager.sol";
 import {IBPTentacle} from "./IBPTentacle.sol";
 
 interface IBPTentacleHelper {
-    function createFor(uint8 tentacleId, IBPTentacle tentacle, uint256 tokenId, uint256 amount, address beneficiary)
-        external;
+    function createFor(
+        uint8 tentacleId,
+        IBPTentacle tentacle,
+        uint256[] memory tokenIds,
+        uint256 amount,
+        address beneficiary
+    ) external;
 }

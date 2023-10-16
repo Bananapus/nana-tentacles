@@ -122,27 +122,22 @@ contract BPLockManager is IBPLockManager {
         // Keep a reference to the number of tokens.
         uint256 _numberOfTokens = _tokenIds.length;
 
-        // TODO: this is very ineffecient how we are doing it now,
-        // we should register each token and then bulk create for all at once (using `_stakingAmount`)
-        uint256 _numberOfTentacles = _tentacleData.length;
-
-        // Loop through each token being staked
-        for (uint256 _j; _j < _numberOfTokens;) {
-            // Keep a reference to the amount of staked tokens represented by the token.
-            uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenIds[_j]);
-
-            // Loop through each tentacle
-            for (uint256 _i; _i < _numberOfTentacles;) {
-                // Create the tentacle.
-                _create(_tentacleData[_i].id, _tokenIds[_j], _beneficiary, _amount, _tentacleData[_i].helper);
-
-                unchecked {
-                    ++_i;
-                }
-            }
-
+        // Verify that these all these tokens can be registered for the tentacles and register them 
+        uint256 _totalTokenCount;
+        for(uint256 _i; _i < _numberOfTokens;) {
+            _registerTentacles(_tokenIds[_i], _tentacleData);
+            _totalTokenCount += stakingDelegate.stakingTokenBalance(_tokenIds[_i]);
             unchecked {
-                ++_j;
+                ++_i;
+            }
+        }
+
+        // For each tentacle we mint all the positions at once
+        uint256 _nTentacles = _tentacleData.length;
+        for (uint256 _i; _i < _nTentacles;) {
+            _create(_tentacleData[_i].id, _tokenIds, _beneficiary, _totalTokenCount, _tentacleData[_i].helper);
+            unchecked {
+                ++_i;
             }
         }
 
@@ -191,11 +186,15 @@ contract BPLockManager is IBPLockManager {
         // Make sure the caller owns the token being destroyed, or has been approved by the owner.
         if (!stakingDelegate.isApprovedOrOwner(msg.sender, _tokenId)) revert UNAUTHORIZED(_tokenId);
 
-        // Keep a reference to the amount of staked tokens represented by the token.
+        // Get the value of the token
         uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenId);
+        uint256[] memory _tokenIds = new uint256[](1);
+        _tokenIds[0] = _tokenId;
 
-        // Create the tentacle.
-        _create(_tentacleId, _tokenId, _beneficiary, _amount, _helperOverride);
+        // Check if the tentacle can be registered and set it as registered
+        _registerTentacle(_tokenId, _tentacleId);
+        // Create the position
+        _create(_tentacleId, _tokenIds, _beneficiary, _amount, _helperOverride);
 
         // TODO: emit event?
         // answer: yes
@@ -240,27 +239,64 @@ contract BPLockManager is IBPLockManager {
     // ---------------------- internal transactions ---------------------- //
     //*********************************************************************//
 
+    /// @notice Updates a tokenId to set multiple tentacles as registered.
+    /// @param _tokenId the token ID to update the tentacles for
+    /// @param _tentacles the tentacles to set as registered
+    function _registerTentacles(
+        uint256 _tokenId,
+        TentacleCreateData[] memory _tentacles
+    ) internal {
+        bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
+
+        for (uint256 _i; _i < _tentacles.length;) {
+            // Check if this tentacle has already been registered
+            if (_tentacleIsOutstanding(_outstandingTentacles, _tentacles[_i].id)) {
+                revert ALREADY_CREATED(_tentacles[_i].id, _tokenId);
+            }
+
+            // Register it
+            _outstandingTentacles = _setTentacle(_outstandingTentacles, _tentacles[_i].id);
+
+            unchecked {
+                ++_i;
+            }
+        }
+
+        // Update all the newly registered tentacles at once
+        outstandingTentacles[_tokenId] = _outstandingTentacles;
+    }
+
+    /// @notice Updates a tokenId to set a tentacles as registered.
+    /// @param _tokenId the token ID to update the tentacles for
+    /// @param _tentacleId the tentacle to set as registered
+    function _registerTentacle(
+        uint256 _tokenId,
+        uint8 _tentacleId
+    ) internal {
+         // Check that the tentacle hasn't been created yet for this token
+        bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
+        if (_tentacleIsOutstanding(_outstandingTentacles, _tentacleId)) {
+            revert ALREADY_CREATED(_tentacleId, _tokenId);
+        }
+
+        // Update to reflect that the tentacle has been created
+        outstandingTentacles[_tokenId] = _setTentacle(_outstandingTentacles, _tentacleId);
+    }
+
     /// @notice Creates a tentacle.
     /// @param _tentacleId The ID of the tentacle being created.
-    /// @param _tokenId The ID of the staked token to which the tentacle belongs.
+    /// @param _tokenIds The IDs of the staked tokens to which the tentacle belongs.
     /// @param _beneficiary The address that the tentacle being created should belong to.
     /// @param _size The amount of the new tentacle being created.
     /// @param _helperOverride not sure
     function _create(
         uint8 _tentacleId,
-        uint256 _tokenId,
+        uint256[] memory _tokenIds,
         address _beneficiary,
         uint256 _size,
         IBPTentacleHelper _helperOverride
     ) internal {
-        // Keep a reference to the outstanding tentacles for the token.
-        bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
-
-        // Make sure the tentacle isn't already created for the given token.
-        if (_tentacleIsOutstanding(_outstandingTentacles, _tentacleId)) revert ALREADY_CREATED(_tentacleId, _tokenId);
-
-        // Store the new outstanding tentacle state.
-        outstandingTentacles[_tokenId] = _setTentacle(_outstandingTentacles, _tentacleId);
+        // NOTICE: this does not perform access control checks!
 
         // Keep a reference to the tentacle that is being created.
         TentacleConfiguration memory _tentacle = tentacles[_tentacleId];
@@ -287,7 +323,7 @@ contract BPLockManager is IBPLockManager {
             // Mint to the helper
             _tentacle.tentacle.mint(address(_helper), _size);
             // Call the helper to perform its actions
-            _helper.createFor(_tentacleId, _tentacle.tentacle, _tokenId, _size, _beneficiary);
+            _helper.createFor(_tentacleId, _tentacle.tentacle, _tokenIds, _size, _beneficiary);
         } else {
             // Call tentacle to mint tokens
             _tentacle.tentacle.mint(_beneficiary, _size);

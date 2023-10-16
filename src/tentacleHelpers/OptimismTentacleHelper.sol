@@ -26,7 +26,7 @@ contract OptimismTentacleHelper is IBPTentacleHelper {
         _l1TokenAddress.approve(address(_bridge), type(uint256).max);
     }
 
-    function createFor(uint8, IBPTentacle, uint256, uint256 _amount, address _beneficiary) external override {
+    function createFor(uint8, IBPTentacle, uint256[] memory, uint256 _amount, address _beneficiary) external override {
         bridge.depositERC20To(address(l1TokenAddress), l2TokenAddress, _beneficiary, _amount, l2MinGasLimit, bytes(""));
     }
 }
