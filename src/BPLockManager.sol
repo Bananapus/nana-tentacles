@@ -167,9 +167,6 @@ contract BPLockManager is IBPLockManager {
                 ++_i;
             }
         }
-
-        // TODO: emit event?
-        // answer: yes
     }
 
     /// @notice Create an outstanding tentacle.
@@ -195,9 +192,6 @@ contract BPLockManager is IBPLockManager {
         _registerTentacle(_tokenId, _tentacleId);
         // Create the position
         _create(_tentacleId, _tokenIds, _beneficiary, _amount, _helperOverride);
-
-        // TODO: emit event?
-        // answer: yes
     }
 
     /// @notice Destroys an outstanding tentacle.
@@ -209,9 +203,6 @@ contract BPLockManager is IBPLockManager {
 
         // Destroy the tentacle.
         _destroy(_tentacleId, _tokenId, msg.sender, msg.sender);
-
-        // TODO: emit event?
-        // answer: yes
     }
 
     /// @notice Sets a tentacle implementation for the given ID.
@@ -257,6 +248,12 @@ contract BPLockManager is IBPLockManager {
             // Register it
             _outstandingTentacles = _setTentacle(_outstandingTentacles, _tentacles[_i].id);
 
+            emit TentacleStateUpdated(
+                _tokenId,
+                _tentacles[_i].id,
+                true
+            );
+
             unchecked {
                 ++_i;
             }
@@ -281,6 +278,12 @@ contract BPLockManager is IBPLockManager {
 
         // Update to reflect that the tentacle has been created
         outstandingTentacles[_tokenId] = _setTentacle(_outstandingTentacles, _tentacleId);
+
+        emit TentacleStateUpdated(
+            _tokenId,
+            _tentacleId,
+            true
+        );
     }
 
     /// @notice Creates a tentacle.
@@ -356,6 +359,12 @@ contract BPLockManager is IBPLockManager {
 
         // Store the new outstanding tentacle state.
         outstandingTentacles[_tokenId] = _unsetTentacle(_outstandingTentacles, _tentacleId);
+
+        emit TentacleStateUpdated(
+            _tokenId,
+            _tentacleId,
+            false
+        );
     }
 
     //*********************************************************************//
