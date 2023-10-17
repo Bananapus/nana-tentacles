@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "openzeppelin-solidity": "OpenZeppelin/openzeppelin-contracts",
+    "solmate": "^6.2.0"
+  }
+}

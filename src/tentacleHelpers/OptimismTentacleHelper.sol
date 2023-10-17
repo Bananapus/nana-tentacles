@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {IBPTentacleHelper, IBPTentacle} from "src/interfaces/IBPTentacleHelper.sol";
-import {ERC20} from "lib/solmate/src/tokens/ERC20.sol";
+import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
 contract OptimismTentacleHelper is IBPTentacleHelper {
     ERC20 immutable l1TokenAddress;

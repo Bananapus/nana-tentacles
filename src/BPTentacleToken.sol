@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import {ERC20} from "lib/solmate/src/tokens/ERC20.sol";
-import {ERC165} from "lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol";
+import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IBPTentacle} from "./interfaces/IBPTentacle.sol";
 
 /// @notice A standard tentacle token.
