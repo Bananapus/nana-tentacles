@@ -5,7 +5,7 @@ import {Test, console2} from "forge-std/Test.sol";
 import "../../src/BPLockManager.sol";
 
 contract LockManagerBitshiftingTest is BPLockManager, Test {
-    constructor() BPLockManager(IStakingDelegate(address(0))) {}
+    constructor() BPLockManager(IStakingDelegate(address(0)), address(1)) {}
 
     function testToggle(bytes32 _outstandingTentacles, uint8 _id) public pure {
         // Get the state it was in initially

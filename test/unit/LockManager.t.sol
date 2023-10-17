@@ -17,11 +17,13 @@ contract LockManagerUnitTest is DSTestFull {
 
     ForTest_BPLockManager _lockManager;
 
+    address owner = _newAddress();
+
     // Mocks
     IStakingDelegate _delegate = IStakingDelegate(_mockContract("delegate"));
 
     function setUp() public {
-        _lockManager = new ForTest_BPLockManager(_delegate);
+        _lockManager = new ForTest_BPLockManager(_delegate, owner);
     }
 
     function test_create(address _user, address _beneficiary, uint256 _tokenID, uint256 _tokenStake, uint8 _tentacleID)
@@ -157,7 +159,7 @@ contract LockManagerUnitTest is DSTestFull {
 }
 
 contract ForTest_BPLockManager is BPLockManager {
-    constructor(IStakingDelegate _stakingDelegate) BPLockManager(_stakingDelegate) {}
+    constructor(IStakingDelegate _stakingDelegate, address _owner) BPLockManager(_stakingDelegate, _owner) {}
 
     function setTentacleConfiguration(uint8 _tentacleID, TentacleConfiguration memory _configuration) public {
         tentacles[_tentacleID] = _configuration;

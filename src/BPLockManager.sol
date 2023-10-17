@@ -6,6 +6,8 @@ import {IBPTentacleHelper} from "./interfaces/IBPTentacleHelper.sol";
 import {IBPLockManager} from "./interfaces/IBPLockManager.sol";
 import {IStakingDelegate} from "./interfaces/IStakingDelegate.sol";
 
+import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+
 /// @custom:member id The ID of the tentacle being created.
 /// @custom:member helper The helper to use for creating the tentacle.
 struct TentacleCreateData {
@@ -25,7 +27,7 @@ struct TentacleConfiguration {
 }
 
 /// @notice A contract that manages the locking of staked 721s.
-contract BPLockManager is IBPLockManager {
+contract BPLockManager is Ownable2Step, IBPLockManager {
     //*********************************************************************//
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
@@ -91,7 +93,8 @@ contract BPLockManager is IBPLockManager {
     //*********************************************************************//
 
     /// @param _stakingDelegate The 721 staking delegate that this lock manager manages.
-    constructor(IStakingDelegate _stakingDelegate) {
+    /// @param _owner The owner of the lockManager
+    constructor(IStakingDelegate _stakingDelegate, address _owner) Ownable(_owner) {
         stakingDelegate = _stakingDelegate;
     }
 
@@ -213,10 +216,7 @@ contract BPLockManager is IBPLockManager {
         uint8 _tentacleId,
         TentacleConfiguration calldata _configuration,
         IBPTentacleHelper _defaultHelper
-    ) external {
-        // NOTICE
-        // TODO: Add owner check!
-
+    ) external onlyOwner {
         // Should we allow a tentacle to be replaced?
         // answer: no. TODO
         tentacles[_tentacleId] = _configuration;

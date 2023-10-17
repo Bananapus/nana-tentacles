@@ -7,6 +7,7 @@ import "src/BPLockManager.sol";
 
 contract ConfigureManagerScript is ConfigureOPTentacleScript {
     string L1_RPC = "https://gateway.tenderly.co/public/goerli";
+    address owner = address(0x1337);
     IStakingDelegate L1_STAKING_DELEGATE = IStakingDelegate(0x3281688433Be4409A1E64bD604605a57328db416);
 
     // OPL1StandardBridge L1_BRIDGE;
@@ -28,7 +29,7 @@ contract ConfigureManagerScript is ConfigureOPTentacleScript {
         //
         uint256 _L1Fork = vm.createSelectFork(L1_RPC);
         vm.broadcast();
-        BPLockManager _lockManager = new BPLockManager(L1_STAKING_DELEGATE);
+        BPLockManager _lockManager = new BPLockManager(L1_STAKING_DELEGATE, owner);
 
         // Deploy for Optimism
         (IBPTentacle _opTentacle, OptimismTentacleHelper _opHelper) = _preconfigureOptimisticL2(
