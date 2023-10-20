@@ -58,7 +58,7 @@ contract ConfigureManagerScript is ConfigureOPTentacleScript {
         vm.broadcast();
         _lockManager.setTentacle(
             1,
-            TentacleConfiguration({
+            BPTentacleConfiguration({
                 hasDefaultHelper: false,
                 forceDefault: false,
                 revertIfDefaultForcedAndOverriden: false,
@@ -71,7 +71,7 @@ contract ConfigureManagerScript is ConfigureOPTentacleScript {
         vm.broadcast();
         _lockManager.setTentacle(
             2,
-            TentacleConfiguration({
+            BPTentacleConfiguration({
                 hasDefaultHelper: false,
                 forceDefault: false,
                 revertIfDefaultForcedAndOverriden: false,

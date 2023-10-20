@@ -121,7 +121,7 @@ contract LockManagerUnitTest is DSTestFull {
 
         __lockManager.setTentacleConfiguration(
             _tentacleId,
-            TentacleConfiguration({
+            BPTentacleConfiguration({
                 hasDefaultHelper: false,
                 forceDefault: false,
                 revertIfDefaultForcedAndOverriden: false,
@@ -161,7 +161,7 @@ contract LockManagerUnitTest is DSTestFull {
 contract ForTest_BPLockManager is BPLockManager {
     constructor(IStakingDelegate _stakingDelegate, address _owner) BPLockManager(_stakingDelegate, _owner) {}
 
-    function setTentacleConfiguration(uint8 _tentacleID, TentacleConfiguration memory _configuration) public {
+    function setTentacleConfiguration(uint8 _tentacleID, BPTentacleConfiguration memory _configuration) public {
         tentacles[_tentacleID] = _configuration;
     }
 }

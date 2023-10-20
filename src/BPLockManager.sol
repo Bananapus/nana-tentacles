@@ -6,25 +6,10 @@ import {IBPTentacleHelper} from "./interfaces/IBPTentacleHelper.sol";
 import {IBPLockManager} from "./interfaces/IBPLockManager.sol";
 import {IStakingDelegate} from "./interfaces/IStakingDelegate.sol";
 
+import {BPTentacleCreateData} from "./structs/BPTentacleCreateData.sol";
+import {BPTentacleConfiguration} from "./structs/BPTentacleConfiguration.sol";
+
 import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
-
-/// @custom:member id The ID of the tentacle being created.
-/// @custom:member helper The helper to use for creating the tentacle.
-struct TentacleCreateData {
-    uint8 id;
-    IBPTentacleHelper helper;
-}
-
-/// @custom:member hasDefaultHelper Defines if a default helper is set (saves us an sload to check).
-/// @custom:member forceDefault Defines if a default helper is set (saves us an sload to check).
-/// @custom:member revertIfDefaultForcedAndOverriden If a forced default is set and the user provides an override, should this cause a revert, or should we not revert and use the forced default.
-/// @custom:member tentacle The tentacle address.
-struct TentacleConfiguration {
-    bool hasDefaultHelper;
-    bool forceDefault;
-    bool revertIfDefaultForcedAndOverriden;
-    IBPTentacle tentacle;
-}
 
 /// @notice A contract that manages the locking of staked 721s.
 contract BPLockManager is Ownable2Step, IBPLockManager {
@@ -60,7 +45,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
     /// @notice The available tentacles for stakers to take out.
     /// @dev Limited to be a `uint8` since this is the limit of the `outstandingTentacles` bitmap.
     /// @custom:param The tentacle ID of each configuration.
-    mapping(uint8 _tentacleId => TentacleConfiguration) public tentacles;
+    mapping(uint8 _tentacleId => BPTentacleConfiguration) public tentacles;
 
     /// @notice The implementation of tentacle creation for each ID.
     /// @custom:param The tentacle ID of each default helper.
@@ -121,7 +106,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
 
         // Parse the data needed to create tentacles from the metadata sent by the staker.
         // NOTICE: The user provides this data we have to make sure we protect against specifying the same tentacle multiple times
-        (TentacleCreateData[] memory _tentacleData) = abi.decode(_data, (TentacleCreateData[]));
+        (BPTentacleCreateData[] memory _tentacleData) = abi.decode(_data, (BPTentacleCreateData[]));
 
         // Keep a reference to the number of tokens.
         uint256 _numberOfTokens = _tokenIds.length;
@@ -212,7 +197,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
     /// @param _defaultHelper not sure
     function setTentacle(
         uint8 _tentacleId,
-        TentacleConfiguration calldata _configuration,
+        BPTentacleConfiguration calldata _configuration,
         IBPTentacleHelper _defaultHelper
     ) external onlyOwner {
         // Make sure the tentacle doesn't already exist
@@ -241,7 +226,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
     /// @param _tentacles the tentacles to set as registered
     function _registerTentacles(
         uint256 _tokenId,
-        TentacleCreateData[] memory _tentacles
+        BPTentacleCreateData[] memory _tentacles
     ) internal {
         bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
 
@@ -308,7 +293,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         // NOTICE: this does not perform access control checks!
 
         // Keep a reference to the tentacle that is being created.
-        TentacleConfiguration memory _tentacle = tentacles[_tentacleId];
+        BPTentacleConfiguration memory _tentacle = tentacles[_tentacleId];
 
         // Make sure the tentacle exists.
         if (address(_tentacle.tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleId);
@@ -355,7 +340,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         if (!_tentacleIsOutstanding(_outstandingTentacles, _tentacleId)) revert NOT_CREATED(_tentacleId, _tokenId);
 
         // Get the tentacle that is being destroyed.
-        TentacleConfiguration memory _tentacleConfiguration = tentacles[_tentacleId];
+        BPTentacleConfiguration memory _tentacleConfiguration = tentacles[_tentacleId];
 
         // Make sure the tentacle exists.
         if (address(_tentacleConfiguration.tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleId);
