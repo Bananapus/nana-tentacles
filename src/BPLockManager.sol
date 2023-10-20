@@ -39,6 +39,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
     error TENTACLE_NOT_SET(uint8 _tentacleId);
     error TENTACLE_HAS_DEFAULT_HELPER(uint8 _tentacleId);
     error UNAUTHORIZED(uint256 _tokenId);
+    error TENTACLE_ALREADY_EXISTS(uint8 _tentacleId);
 
     //*********************************************************************//
     // ---------------- public immutable stored properties --------------- //
@@ -143,9 +144,6 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
                 ++_i;
             }
         }
-
-        // TODO: emit event?
-        // answer: yes
     }
 
     /// @notice A hook called by the staking delegate upon token redemption.
@@ -217,13 +215,21 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         TentacleConfiguration calldata _configuration,
         IBPTentacleHelper _defaultHelper
     ) external onlyOwner {
-        // Should we allow a tentacle to be replaced?
-        // answer: no. TODO
+        // Make sure the tentacle doesn't already exist
+        if (address(tentacles[_tentacleId].tentacle) != address(0))
+            revert TENTACLE_ALREADY_EXISTS(_tentacleId);
+        
         tentacles[_tentacleId] = _configuration;
         defaultTentacleHelper[_tentacleId] = _defaultHelper;
 
-        // TODO: emit event
-        // answer: yes
+        emit TentacleSet(
+            _tentacleId,
+            _configuration.hasDefaultHelper,
+            _configuration.forceDefault,
+            _configuration.revertIfDefaultForcedAndOverriden,
+            address(_defaultHelper),
+            address(_configuration.tentacle)
+        );
     }
 
     //*********************************************************************//

@@ -8,6 +8,15 @@ interface IBPLockManager {
         bool created
     );
 
+    event TentacleSet(
+        uint8 tentacleId,
+        bool hasDefaultHelper,
+        bool forceDefault,
+        bool revertIfDefaultForcedAndOverriden,
+        address defaultHelper,
+        address tentacle
+    );
+
     function onRegistration(address beneficiary, uint256 stakingAmount, uint256[] memory tokenIds, bytes calldata data)
         external;
     function onRedeem(uint256 tokenId, address owner) external;
