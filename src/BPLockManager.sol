@@ -6,6 +6,7 @@ import {IBPTentacleHelper} from "./interfaces/IBPTentacleHelper.sol";
 import {IBPLockManager} from "./interfaces/IBPLockManager.sol";
 import {IStakingDelegate} from "./interfaces/IStakingDelegate.sol";
 
+import {BPConstants} from "./libraries/BPConstants.sol";
 import {BPTentacleCreateData} from "./structs/BPTentacleCreateData.sol";
 import {BPTentacleConfiguration} from "./structs/BPTentacleConfiguration.sol";
 
@@ -90,7 +91,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
 
     /// @notice A hook called by the staking delegate upon token creation.
     /// @param _beneficiary The address who received the staked position.
-    /// @param _tokenIds The tokenIds that were registered.
+    /// @param _stakingAmount The amount of tokens being staked.
     /// @param _tokenIds The ids of the tokens being redeemed.
     /// @param _data Metadata sent by the staker.
     function onRegistration(
@@ -299,7 +300,6 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         if (address(_tentacle.tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleId);
 
         // Figure out the helper we should use
-        // TODO: add a reserved address (BPConstants.NO_HELPER_CONTRACT) that specifies the case for 'if there is a (unenforced) default I would still prefer the 0 address flow instead'
         IBPTentacleHelper _helper = _helperOverride;
         if (_tentacle.hasDefaultHelper && (_tentacle.forceDefault || address(_helper) == address(0))) {
             IBPTentacleHelper _defaultHelper = defaultTentacleHelper[_tentacleId];
@@ -311,6 +311,10 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
 
             _helper = _defaultHelper;
         }
+
+        // If the passed helper is the no helper constant the user wants to not have any helper at all.
+        if (address(_helper) == BPConstants.NO_HELPER_CONTRACT)
+            _helper = IBPTentacleHelper(address(0));
 
         // Perform the mint, either use the helper flow or the regular flow
         if (address(_helper) != address(0)) {
