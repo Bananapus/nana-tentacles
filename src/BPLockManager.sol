@@ -41,7 +41,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
     /// @notice The outstanding tentacles for each staked 721.
     /// @dev The index of the activated bits identify which tentacles are outstanding. ex. `0x5` means that both tentacles with IDs 0 and 2 are outstanding
     /// @custom:param The token ID to which the outstanding tentacles belong.
-    mapping(uint256 _tokenId => bytes32) outstandingTentacles;
+    mapping(uint256 _tokenId => bytes32) public outstandingTentacles;
 
     /// @notice The available tentacles for stakers to take out.
     /// @dev Limited to be a `uint8` since this is the limit of the `outstandingTentacles` bitmap.
@@ -71,7 +71,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
     /// @param _tokenId The ID of the token to check for.
     /// @param _tentacleId The ID of the tentacle to check.
     /// @return A flag indicating if the tentacle is outstanding.
-    function tenacleCreated(uint256 _tokenId, uint8 _tentacleId) external view returns (bool) {
+    function tentacleCreated(uint256 _tokenId, uint8 _tentacleId) external view returns (bool) {
         return _tentacleIsOutstanding(outstandingTentacles[_tokenId], _tentacleId);
     }
 
@@ -334,9 +334,6 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
     /// @param _caller The address that is destroying the tentacle.
     /// @param _from The address that the tentacle is being destroyed from.
     function _destroy(uint8 _tentacleId, uint256 _tokenId, address _caller, address _from) internal {
-        // Keep a reference to the amount of staked tokens represented by the token.
-        uint256 _amount = stakingDelegate.stakingTokenBalance(_tokenId);
-
         // Keep a reference to the outstanding tentacles for the token.
         bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
 
@@ -349,8 +346,11 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         // Make sure the tentacle exists.
         if (address(_tentacleConfiguration.tentacle) == address(0)) revert TENTACLE_NOT_SET(_tentacleId);
 
+        // Keep a reference to the amount of staked tokens represented by the token.
+        uint256 _stakedAmount = stakingDelegate.stakingTokenBalance(_tokenId);
+
         // Destroy the tentacle.
-        _tentacleConfiguration.tentacle.burn(_caller, _from, _amount);
+        _tentacleConfiguration.tentacle.burn(_caller, _from, _stakedAmount);
 
         // Store the new outstanding tentacle state.
         outstandingTentacles[_tokenId] = _unsetTentacle(_outstandingTentacles, _tentacleId);

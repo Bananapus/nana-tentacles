@@ -41,13 +41,13 @@ contract LockManagerUnitTest is DSTestFull {
         vm.expectCall(address(_tentacle), abi.encodeCall(_tentacle.mint, (_beneficiary, _tokenStake)));
 
         // Check that the tentacle has not been created yet
-        assertEq(_lockManager.tenacleCreated(_tokenID, _tentacleID), false);
+        assertEq(_lockManager.tentacleCreated(_tokenID, _tentacleID), false);
 
         vm.prank(_user);
         _lockManager.create(_tentacleID, _tokenID, _beneficiary, IBPTentacleHelper(address(0)));
 
         // Check that it is not registered
-        assertEq(_lockManager.tenacleCreated(_tokenID, _tentacleID), true);
+        assertEq(_lockManager.tentacleCreated(_tokenID, _tentacleID), true);
     }
 
     function test_create_lockManagerNotSet_reverts(
