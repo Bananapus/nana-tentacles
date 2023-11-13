@@ -125,6 +125,7 @@ contract LockManagerUnitTest is DSTestFull {
                 hasDefaultHelper: false,
                 forceDefault: false,
                 revertIfDefaultForcedAndOverriden: false,
+                mintRequiresNativeAssetPayment: false,
                 tentacle: _tentacle
             })
         );

@@ -62,6 +62,7 @@ contract ConfigureManagerScript is ConfigureOPTentacleScript {
                 hasDefaultHelper: false,
                 forceDefault: false,
                 revertIfDefaultForcedAndOverriden: false,
+                mintRequiresNativeAssetPayment: false,
                 tentacle: _opTentacle
             }),
             _opHelper
@@ -75,6 +76,7 @@ contract ConfigureManagerScript is ConfigureOPTentacleScript {
                 hasDefaultHelper: false,
                 forceDefault: false,
                 revertIfDefaultForcedAndOverriden: false,
+                mintRequiresNativeAssetPayment: false,
                 tentacle: _baseTentacle
             }),
             _baseHelper

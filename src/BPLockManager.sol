@@ -125,7 +125,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         // For each tentacle we mint all the positions at once
         uint256 _nTentacles = _tentacleData.length;
         for (uint256 _i; _i < _nTentacles;) {
-            _create(_tentacleData[_i].id, _tokenIds, _beneficiary, _totalTokenCount, _tentacleData[_i].helper);
+            _create(_tentacleData[_i].id, _tokenIds, _beneficiary, _totalTokenCount, 0, _tentacleData[_i].helper);
             unchecked {
                 ++_i;
             }
@@ -139,7 +139,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         // Make sure only the hook is being called by the staking delegate.
         if (msg.sender != address(stakingDelegate)) revert ONLY_DELEGATE();
 
-        // Keep a refeerence to the outstanding tentacles for the token being redeemed.
+        // Keep a reference to the outstanding tentacles for the token being redeemed.
         bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
 
         // If no tentacles are set, there's nothing to do.
@@ -163,6 +163,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
     /// @param _helperOverride not sure
     function create(uint8 _tentacleId, uint256 _tokenId, address _beneficiary, IBPTentacleHelper _helperOverride)
         external
+        payable
     {
         // Make sure that this lock manager is in control of locking the specified token.
         if (stakingDelegate.lockManager(_tokenId) != address(this)) revert NOT_SET_AS_LOCKMANAGER(_tokenId);
@@ -175,10 +176,10 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         uint256[] memory _tokenIds = new uint256[](1);
         _tokenIds[0] = _tokenId;
 
-        // Check if the tentacle can be registered and set it as registered
+        // Check if the tentacle can be registered and set it as registered.
         _registerTentacle(_tokenId, _tentacleId);
-        // Create the position
-        _create(_tentacleId, _tokenIds, _beneficiary, _amount, _helperOverride);
+        // Create the position.
+        _create(_tentacleId, _tokenIds, _beneficiary, _amount, msg.value, _helperOverride);
     }
 
     /// @notice Destroys an outstanding tentacle.
@@ -289,6 +290,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         uint256[] memory _tokenIds,
         address _beneficiary,
         uint256 _size,
+        uint256 _value,
         IBPTentacleHelper _helperOverride
     ) internal {
         // NOTICE: this does not perform access control checks!
@@ -318,13 +320,17 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
 
         // Perform the mint, either use the helper flow or the regular flow
         if (address(_helper) != address(0)) {
+            // Check who should receive the payment, the mint or the helper.
+            uint256 _mintValue = _tentacle.mintRequiresNativeAssetPayment ? _value : 0;
+            uint256 _helperValue = _value - _mintValue;
+
             // Mint to the helper
-            _tentacle.tentacle.mint(address(_helper), _size);
+            _tentacle.tentacle.mint{value: _mintValue}(address(_helper), _size);
             // Call the helper to perform its actions
-            _helper.createFor(_tentacleId, _tentacle.tentacle, _tokenIds, _size, _beneficiary);
+            _helper.createFor{value: _helperValue}(_tentacleId, _tentacle.tentacle, _tokenIds, _size, _beneficiary);
         } else {
             // Call tentacle to mint tokens
-            _tentacle.tentacle.mint(_beneficiary, _size);
+            _tentacle.tentacle.mint{value: _value}(_beneficiary, _size);
         }
     }
 

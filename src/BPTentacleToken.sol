@@ -8,6 +8,7 @@ import {IBPTentacle} from "./interfaces/IBPTentacle.sol";
 /// @notice A standard tentacle token.
 contract BPTentacleToken is ERC20, ERC165, IBPTentacle {
     error UNAUTHORIZED();
+    error NO_VALUE_ALLOWED();
 
     /// @notice The lock manager that has exlusive access to mint and burn this token.
     address immutable lockManager;
@@ -25,9 +26,11 @@ contract BPTentacleToken is ERC20, ERC165, IBPTentacle {
     /// @notice Mints this token.
     /// @param _to The address that should receive the newly minted token.
     /// @param _amount The amount to mint.
-    function mint(address _to, uint256 _amount) external {
+    function mint(address _to, uint256 _amount) external payable {
         // Make sure only the lock manager can mint.
         if (msg.sender != lockManager) revert UNAUTHORIZED();
+        // This should not be called with value.
+        if (msg.value != 0) revert NO_VALUE_ALLOWED();
 
         _mint(_to, _amount);
     }

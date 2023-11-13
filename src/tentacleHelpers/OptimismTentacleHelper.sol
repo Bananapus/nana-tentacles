@@ -5,6 +5,9 @@ import {IBPTentacleHelper, IBPTentacle} from "src/interfaces/IBPTentacleHelper.s
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
 contract OptimismTentacleHelper is IBPTentacleHelper {
+
+    error NO_VALUE_ALLOWED();
+
     ERC20 immutable l1TokenAddress;
 
     /**
@@ -26,7 +29,10 @@ contract OptimismTentacleHelper is IBPTentacleHelper {
         _l1TokenAddress.approve(address(_bridge), type(uint256).max);
     }
 
-    function createFor(uint8, IBPTentacle, uint256[] memory, uint256 _amount, address _beneficiary) external override {
+    function createFor(uint8, IBPTentacle, uint256[] memory, uint256 _amount, address _beneficiary) external payable override {
+        // This should not be called with value.
+        if (msg.value != 0) revert NO_VALUE_ALLOWED();
+
         bridge.depositERC20To(address(l1TokenAddress), l2TokenAddress, _beneficiary, _amount, l2MinGasLimit, bytes(""));
     }
 }
