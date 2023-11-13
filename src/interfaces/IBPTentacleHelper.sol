@@ -11,5 +11,5 @@ interface IBPTentacleHelper {
         uint256[] memory tokenIds,
         uint256 amount,
         address beneficiary
-    ) external;
+    ) external payable;
 }
