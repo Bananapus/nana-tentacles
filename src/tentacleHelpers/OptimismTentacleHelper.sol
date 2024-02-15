@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import {IBPTentacleHelper, IBPTentacle} from "src/interfaces/IBPTentacleHelper.sol";
+import {IBPTentacleHelper, IBPTentacle} from "../interfaces/IBPTentacleHelper.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
 contract OptimismTentacleHelper is IBPTentacleHelper {

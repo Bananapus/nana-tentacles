@@ -7,9 +7,9 @@ import {
     OPL1StandardBridge,
     ERC20,
     IBPTentacle
-} from "src/tentacleHelpers/OptimismTentacleHelper.sol";
-import {BPTentacleToken} from "src/BPTentacleToken.sol";
-import "src/BPLockManager.sol";
+} from "../src/tentacleHelpers/OptimismTentacleHelper.sol";
+import {BPTentacleToken} from "../src/BPTentacleToken.sol";
+import "../src/BPLockManager.sol";
 
 abstract contract ConfigureOPTentacleScript is Script {
     /**
