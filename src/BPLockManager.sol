@@ -112,9 +112,9 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         // Keep a reference to the number of tokens.
         uint256 _numberOfTokens = _tokenIds.length;
 
-        // Verify that these all these tokens can be registered for the tentacles and register them 
+        // Verify that these all these tokens can be registered for the tentacles and register them
         uint256 _totalTokenCount;
-        for(uint256 _i; _i < _numberOfTokens;) {
+        for (uint256 _i; _i < _numberOfTokens;) {
             _registerTentacles(_tokenIds[_i], _tentacleData);
             _totalTokenCount += stakingDelegate.stakingTokenBalance(_tokenIds[_i]);
             unchecked {
@@ -202,9 +202,10 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         IBPTentacleHelper _defaultHelper
     ) external onlyOwner {
         // Make sure the tentacle doesn't already exist
-        if (address(tentacles[_tentacleId].tentacle) != address(0))
+        if (address(tentacles[_tentacleId].tentacle) != address(0)) {
             revert TENTACLE_ALREADY_EXISTS(_tentacleId);
-        
+        }
+
         tentacles[_tentacleId] = _configuration;
         defaultTentacleHelper[_tentacleId] = _defaultHelper;
 
@@ -225,10 +226,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
     /// @notice Updates a tokenId to set multiple tentacles as registered.
     /// @param _tokenId the token ID to update the tentacles for
     /// @param _tentacles the tentacles to set as registered
-    function _registerTentacles(
-        uint256 _tokenId,
-        BPTentacleCreateData[] memory _tentacles
-    ) internal {
+    function _registerTentacles(uint256 _tokenId, BPTentacleCreateData[] memory _tentacles) internal {
         bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
 
         for (uint256 _i; _i < _tentacles.length;) {
@@ -240,11 +238,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
             // Register it
             _outstandingTentacles = _setTentacle(_outstandingTentacles, _tentacles[_i].id);
 
-            emit TentacleStateUpdated(
-                _tokenId,
-                _tentacles[_i].id,
-                true
-            );
+            emit TentacleStateUpdated(_tokenId, _tentacles[_i].id, true);
 
             unchecked {
                 ++_i;
@@ -258,11 +252,8 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
     /// @notice Updates a tokenId to set a tentacles as registered.
     /// @param _tokenId the token ID to update the tentacles for
     /// @param _tentacleId the tentacle to set as registered
-    function _registerTentacle(
-        uint256 _tokenId,
-        uint8 _tentacleId
-    ) internal {
-         // Check that the tentacle hasn't been created yet for this token
+    function _registerTentacle(uint256 _tokenId, uint8 _tentacleId) internal {
+        // Check that the tentacle hasn't been created yet for this token
         bytes32 _outstandingTentacles = outstandingTentacles[_tokenId];
         if (_tentacleIsOutstanding(_outstandingTentacles, _tentacleId)) {
             revert ALREADY_CREATED(_tentacleId, _tokenId);
@@ -271,11 +262,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         // Update to reflect that the tentacle has been created
         outstandingTentacles[_tokenId] = _setTentacle(_outstandingTentacles, _tentacleId);
 
-        emit TentacleStateUpdated(
-            _tokenId,
-            _tentacleId,
-            true
-        );
+        emit TentacleStateUpdated(_tokenId, _tentacleId, true);
     }
 
     /// @notice Creates a tentacle.
@@ -313,8 +300,9 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         }
 
         // If the passed helper is the no helper constant the user wants to not have any helper at all.
-        if (address(_helper) == BPConstants.NO_HELPER_CONTRACT)
+        if (address(_helper) == BPConstants.NO_HELPER_CONTRACT) {
             _helper = IBPTentacleHelper(address(0));
+        }
 
         // Perform the mint, either use the helper flow or the regular flow
         if (address(_helper) != address(0)) {
@@ -355,11 +343,7 @@ contract BPLockManager is Ownable2Step, IBPLockManager {
         // Store the new outstanding tentacle state.
         outstandingTentacles[_tokenId] = _unsetTentacle(_outstandingTentacles, _tentacleId);
 
-        emit TentacleStateUpdated(
-            _tokenId,
-            _tentacleId,
-            false
-        );
+        emit TentacleStateUpdated(_tokenId, _tentacleId, false);
     }
 
     //*********************************************************************//

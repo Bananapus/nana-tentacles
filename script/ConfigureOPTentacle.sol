@@ -50,11 +50,7 @@ abstract contract ConfigureOPTentacleScript is Script {
         // Perform the final pre-configuration steps on L1 that links the L1 and L2 deployments
         vm.selectFork(_FORGE_L1_FORK);
         vm.startBroadcast();
-        OptimismTentacleHelper _helper = new OptimismTentacleHelper(
-            ERC20(_L1_TENTACLE_TOKEN),
-            _L2_TOKEN,
-            _L1_BRIDGE
-        );
+        OptimismTentacleHelper _helper = new OptimismTentacleHelper(ERC20(_L1_TENTACLE_TOKEN), _L2_TOKEN, _L1_BRIDGE);
         vm.stopBroadcast();
 
         return (_token, _helper);
