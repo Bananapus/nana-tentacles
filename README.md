@@ -2,6 +2,8 @@
 
 `BPLockManager.sol` manages the locking of staked 721 tokens and and manages a `BPTentacleToken.sol` – an ERC-20 token contract with additional functionality allowing its designated lock manager to mint and burn tokens.
 
+_If you're having trouble understanding this contract, take a look at the [core protocol contracts](https://github.com/Bananapus/nana-core) and the [documentation](https://docs.juicebox.money/) first. If you have questions, reach out on [Discord](https://discord.com/invite/ErQYmth4dS)._
+
 ### BPLockManager
 
 `BPLockManager` manages "tentacles", which are essentially representations of staked tokens. It provides functionality to create, destroy, and check the status of these tentacles.
