@@ -2,11 +2,7 @@
 pragma solidity ^0.8.20;
 
 interface IBPLockManager {
-    event TentacleStateUpdated(
-        uint256 indexed tokenId,
-        uint8 tentacleId,
-        bool created
-    );
+    event TentacleStateUpdated(uint256 indexed tokenId, uint8 tentacleId, bool created);
 
     event TentacleSet(
         uint8 tentacleId,

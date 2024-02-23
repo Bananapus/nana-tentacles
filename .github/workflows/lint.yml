@@ -1,4 +1,4 @@
-name: test
+name: lint
 on:
   pull_request:
     branches:
@@ -15,14 +15,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-node@v4
-        with:
-          node-version: latest
-      - name: Install npm dependencies
-        run: npm ci
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-      - name: Run tests
-        run: forge snapshot --fail-fast --summary --detailed
-      - name: Check contract sizes
-        run: forge build --sizes
+      - name: Check linting
+        run: forge fmt --check

@@ -19,7 +19,7 @@ contract LockManagerBitshiftingTest is BPLockManager, Test {
         }
 
         // Get the new state
-        bool _newIsOutstanding= _tentacleIsOutstanding(_outstandingTentacles, _id);
+        bool _newIsOutstanding = _tentacleIsOutstanding(_outstandingTentacles, _id);
 
         // Make sure that it was toggeled
         assert(_isOutstanding != _newIsOutstanding);
